@@ -110,6 +110,12 @@ of the official 16 and a single seed (42). The exact launch-time source
 revision is unknown. Independent B1 test evaluation remains outstanding.
 [Experiment registry](docs/experiments.md)
 
+D1 is complete and scientifically reviewed. Both checkpoints recalled
+smaller-area defects less often on validation, and B1 had 13 localization
+errors in the narrowest short-side quartile. E1, higher-resolution
+inference, is the next approved experiment.
+[Reviewed D1 report](docs/results/d1_error_analysis.md) · [Research plan](docs/research_plan.md)
+
 ## HPC execution and recovery
 
 After recording the current source, submit from the repository root.

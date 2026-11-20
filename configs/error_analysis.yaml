@@ -1,0 +1,10 @@
+RUN_ID: d1-baseline-01
+# Set to the logical device authorized for this PBS job.
+DEVICE: "cuda:0"
+B0_CHECKPOINT: upstream/AGE-YOLO/weights/pretrained_gc10.pt
+B1_CHECKPOINT: experiments/hpc-full-06/weights/best.pt
+CONFIDENCE: 0.25
+MATCH_IOU: 0.50
+BACKGROUND_IOU: 0.10
+EXAMPLE_SEED: 42
+AP_PARITY_TOLERANCE: 0.002

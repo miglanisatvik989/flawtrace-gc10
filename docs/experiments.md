@@ -84,3 +84,11 @@ institutional retention policy have yet to be confirmed.
 The [file-level SHA-256 inventory](b1-artifacts.sha256) covers B1 weights,
 plots, configuration, environment, CSV and terminal log. Verify it from
 the original run directory with `sha256sum -c /path/to/docs/b1-artifacts.sha256`.
+
+## D1 — Baseline error analysis
+
+Completed and scientifically reviewed. Run `d1-baseline-01` compared B0
+and B1 on 230 validation images with 345 objects. Native AP passed parity
+for both checkpoints. The complete run and PBS log are archived under
+`artifacts/D1/`. E1 is the next approved experiment.
+[Reviewed D1 report](results/d1_error_analysis.md) · [Research plan](research_plan.md)
