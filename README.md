@@ -3,9 +3,9 @@
 ## Project overview
 
 FlawTrace studies industrial surface defect detection on GC10-DET using the
-authors’ AGE-YOLO fork. The released-checkpoint experiment (B0) and our
-single-seed independent training run (B1) answer different questions. B1
-training has finished and awaits scientific review. The
+authors’ AGE-YOLO fork. B0 verifies the authors’ released checkpoint.
+B1 is scientifically accepted as FlawTrace’s hardware-adapted, single-seed
+AGE-YOLO baseline for milestone `v0.1-baseline`. The
 [experiment registry](docs/experiments.md) records results and artifact identities.
 
 ## Repository structure
@@ -103,11 +103,12 @@ digest. Test evaluation requires separate approval after model selection.
 | B0 released weights, standalone evaluation | Validation | 76.28% | 42.07% |
 | B0 released weights, approved historical evaluation | Test | 72.76% | 40.93% |
 | B1 epoch 84, training CSV | Validation | 69.59% | 34.22% |
-| B1 best.pt, standalone evaluation | Validation | 69.53% | 34.12% |
+| B1 best.pt, accepted standalone evaluation | Validation | 69.5288% | 34.1224% |
 
-B1 stopped after epoch 134. Standalone validation completed. Scientific review
-and milestone acceptance are pending. Differences in training batch and unknown
-details of the original run limit comparisons. [Experiment registry](docs/experiments.md)
+B1 selected epoch 84 and stopped after epoch 134. It used batch 64 instead
+of the official 16 and a single seed (42). The exact launch-time source
+revision is unknown. Independent B1 test evaluation remains outstanding.
+[Experiment registry](docs/experiments.md)
 
 ## HPC execution and recovery
 

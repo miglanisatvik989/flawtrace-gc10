@@ -23,7 +23,10 @@ evaluation host. Their payloads were unavailable in this HPC checkout.
 
 ## B1 — Independent baseline reproduction
 
-Training and standalone validation completed. Scientific acceptance pending. Run
+**Scientifically accepted for milestone `v0.1-baseline`.** B1 is the
+hardware-adapted, single-seed AGE-YOLO baseline. Standalone validation of
+the selected `best.pt` in `b1-val-02` yielded **69.5288% mAP50** and
+**34.1224% mAP50–95**. Run
 `experiments/hpc-full-06/` used the [saved run configuration](../configs/baseline/age_yolo_b1.yaml).
 The actual args and effective settings are archived with the results. The
 release dataset revision is `93d2bc4420b024d3cbd825610ad7aad7b2544311`.
@@ -58,8 +61,8 @@ message. It records successful final validation and normal completion.
 PBS job 47713.mgmt01 (gpu01, H100, cuda:0) exited successfully. The evaluator
 verified 230 validation images and 345 objects. Full-precision metrics,
 per-class AP, plots and timing are in `experiments/b1-val-02/`. The preceding
-failed CUDA startup is preserved in `experiments/b1-val-01/`. No B1 test result
-is recorded. Single-seed variation and the batch change preclude a claim
+failed CUDA startup is preserved in `experiments/b1-val-01/`. Independent B1
+test evaluation remains outstanding. Single-seed variation and the batch change preclude a claim
 of reproducing the authors’ multi-run mean.
 
 | Preserved artifact | SHA-256 |
