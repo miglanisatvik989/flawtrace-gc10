@@ -20,6 +20,11 @@ This checklist describes the workflow for future FlawTrace experiments.
   learning rate, augmentations, and other relevant upstream settings.
 - Define validation metrics and protocol, preserve test separation, and record
   differences from the reference methodology before execution.
+- Use validation for hyperparameter tuning, threshold selection, and model or
+  checkpoint selection. Keep test data and artifacts out of those decisions,
+  including the [official checkpoint test record](checkpoint_evaluation.md).
+  Freeze the model and settings before seeking authorization for any later
+  final test evaluation.
 - Confirm CUDA and mixed precision compatibility with the environment checker.
   Explicitly select the CUDA device and verify model parameters, training
   images, and loss inputs are on that device when used. Fail clearly if CUDA
