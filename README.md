@@ -1,175 +1,117 @@
 # FlawTrace
 
-FlawTrace is a research project on industrial surface defect detection using
-**GC10-DET**, with **AGE-YOLO** as the reference methodology. Proposed improvements
-will be determined after baseline validation, within limited development time
-and computational resources.
+## Project overview
 
-## Current status
+FlawTrace studies industrial surface defect detection on GC10-DET using the
+authors’ AGE-YOLO fork. The released-checkpoint experiment (B0) and our
+single-seed independent training run (B1) answer different questions. B1
+training has finished and awaits scientific review. The
+[experiment registry](docs/experiments.md) records results and artifact identities.
 
-The official AGE-YOLO implementation is pinned as a Git submodule at
-`upstream/AGE-YOLO` (commit `99002665ff2f7faa5013c081b1b8f547ae4566ec`).
-The authors' GC10-DET release has been audited with its original splits. The
-official AGE-YOLO checkpoint scored **76.28% mAP50 on validation** and
-**72.76% on test**, with mAP50–95 of **42.07%** and **40.93%**, respectively.
-These metrics are from the authors’ checkpoint. The independent batch-64
-baseline, `hpc-full-06`, was in progress on UPES HPC at consolidation. Final
-independent baseline metrics are pending. [Evaluation report](docs/checkpoint_evaluation.md)
+## Repository structure
 
-Initialize the submodule from the repository root:
+| Path | Purpose |
+|---|---|
+| `configs/hpc.yaml`, `configs/baseline/` | Editable execution settings, reference settings and B1 run snapshot |
+| `configs/gc10*.yaml`, `data/manifests/` | Native dataset descriptors and versioned split identities |
+| `scripts/`, `submit.sh`, `submit_eval.sh` | Data preparation, environment setup, training, evaluation and PBS execution |
+| `upstream/AGE-YOLO/` | Pinned author implementation and official weights |
+| `docs/` | Methods, evidence, environment and experiment records |
+| `experiments/`, `logs/`, `artifacts/` | Locally generated outputs, excluded from Git |
 
-```sh
-git submodule update --init --checkout -- upstream/AGE-YOLO
-git submodule status -- upstream/AGE-YOLO
-```
+## Environment installation
 
-The first command checks out the commit recorded by FlawTrace. The submodule
-includes the checkpoint files and demo images tracked by upstream. See the
-[AGE-YOLO reference notes](docs/age_yolo_reference.md) for their provenance,
-licensing questions, and upstream script discrepancies.
-
-## CUDA environment
-
-Development and experiments run on UPES HPC. On `mgmt01`, install the
-pinned Conda environment and activate it from the repository root.
+On the UPES management node, clone once and initialize the recorded submodule.
 
 ```bash
+git clone --recurse-submodules https://github.com/miglanisatvik989/flawtrace-gc10.git
+cd flawtrace-gc10
 bash scripts/setup_hpc.sh
 source /home/soft/anaconda3/etc/profile.d/conda.sh
 conda activate flawtrace-gc10
 ```
 
-The setup uses headless OpenCV on HPC. The portable Python entry point can
-also be invoked directly from a shell with an authorized GPU.
+The setup pins Python 3.12.14, CUDA 12.8 PyTorch wheels and headless OpenCV.
+The [environment record](docs/environment.md) describes the portable Linux
+wheel lock and the HPC substitution.
 
-### Portable environment installation
+## Dataset preparation
 
-Use CPython 3.12.14 and uv (tested with 0.12.5) on Linux x86-64 with an NVIDIA
-GPU and a driver compatible with CUDA 12.8. After initializing the submodule,
-run these commands from the repository root:
-
-```sh
-uv venv --python 3.12.14 --no-python-downloads .venv
-uv pip sync --python .venv/bin/python \
-  --index https://download.pytorch.org/whl/cu128 \
-  --default-index https://pypi.org/simple \
-  --index-strategy unsafe-first-match requirements.txt
-uv pip check --python .venv/bin/python
-.venv/bin/python scripts/check_env.py
-```
-
-The checker imports Ultralytics from the pinned submodule and uses the official
-model YAML and a synthetic input. See the [environment record](docs/environment.md)
-for the tested host, dependency choices, and smoke-test results.
-
-## GC10-DET setup
-
-After initializing the submodule and installing the Python environment above,
-make `bsdtar` available on PATH (`libarchive-tools` on Ubuntu), then run
-from the repository root:
-
-```sh
-.venv/bin/python scripts/prepare_data.py
-.venv/bin/python scripts/check_data.py
-```
-
-The preparation script fetches only the GC10 portion of the authors' pinned
-archive. See the [dataset record](docs/dataset.md) for usage terms, provenance,
-and integrity findings.
-
-## Official checkpoint evaluation
-
-From the repository root, verify the environment, manifests, and bundled
-checkpoint. The checkpoint smoke check uses a single synthetic input.
-
-```sh
-source .venv/bin/activate
-python scripts/check_env.py
+```bash
+test -d data/gc10-det || python scripts/prepare_data.py
 python scripts/check_data.py
-checkpoint=upstream/AGE-YOLO/weights/pretrained_gc10.pt
-python scripts/evaluate.py --checkpoint "$checkpoint" --smoke-test
+test -d data/gc10-det-aug42-x4 || python scripts/augment_data.py
+python scripts/augment_data.py --verify
 ```
 
-Run the requested split manually. Use validation for development and reserve
-the test command for a separately approved final check. Choose a new run ID
-for each attempt, including retries of failed runs.
+The augmented training split has 7,336 images and 11,524 objects. Validation
+uses the original 230 images and 345 objects. See the [dataset audit](docs/dataset.md).
 
-```sh
-python -u scripts/evaluate.py --checkpoint "$checkpoint" --split val --run-id age-yolo-gc10-val-01
-# When test evaluation is approved:
-python -u scripts/evaluate.py --checkpoint "$checkpoint" --split test --run-id age-yolo-gc10-test-01
+## B0 — Official checkpoint verification
+
+From an authorized GPU shell with the Conda environment active, set DEVICE to
+the indexed CUDA device assigned within that shell. Choose an unused run ID.
+
+```bash
+python scripts/evaluate.py --official --checkpoint upstream/AGE-YOLO/weights/pretrained_gc10.pt \
+    --split val --device "${DEVICE:?set assigned logical CUDA device}" --run-id b0-val-repeat-01
 ```
 
-Monitor GPU usage in a separate terminal:
+B0 verifies the released SHA-256 and uses `configs/gc10.yaml`. Each evaluation
+saves overall and per-class metrics, plots, timings, environment and terminal
+log under `experiments/<run-id>/`. [B0 protocol and results](docs/checkpoint_evaluation.md)
 
-```sh
-nvidia-smi -l 1
-```
+## B1 — Independent baseline reproduction
 
-The wrapper verifies the official checkpoint SHA-256 before loading it.
-It uses the bundled validator on `cuda:0` with image size 640, FP32,
-rectangular batching, batch size 16, eight workers, confidence threshold
-0.001, NMS IoU 0.7, at most 300 detections per image, and no test-time
-augmentation. Those settings come from the pinned `test.py` and the fork's
-validation defaults. The wrapper selects the split explicitly and uses a copy
-of `configs/gc10.yaml` in a temporary tree with the manifest-verified images
-and labels for that split. This keeps the validator's caches and any JPEG
-repair away from the original data. Native plots use a local Matplotlib font.
+The [observed B1 configuration](configs/baseline/age_yolo_b1.yaml) records
+random initialization, seed 42, batch 64 and deterministic offline augmentation.
+The [reference configuration](configs/baseline/age_yolo_reference.yaml) records
+batch 16. For another run, copy the B1 snapshot into the editable configuration,
+choose a fresh RUN_ID and set DEVICE for the allocation. Keep the original
+snapshot available for comparison.
 
-Each run writes live progress to the terminal and `terminal.log`:
-
-```text
-experiments/<run-id>/
-├── terminal.log
-├── run.json                      # checkpoint and dataset identities, run status
-├── environment.json
-├── effective_config.json         # actual arguments from the validator
-├── gc10.yaml
-├── gc10-provenance.json
-├── gc10-audit.json
-├── gc10-<split>.csv
-├── metrics.json
-├── per_class.csv
-├── timing_ms_per_image.json
-└── plots/                        # native PR/confidence curves and confusion matrices
-```
-
-Review the validation run from the repository root:
-
-```sh
-run=experiments/age-yolo-gc10-val-01
-cat "$run/run.json" "$run/metrics.json" "$run/timing_ms_per_image.json"
-cat "$run/per_class.csv"
-ls "$run/plots"
-tail -n 30 "$run/terminal.log"
-```
-
-Use `experiments/age-yolo-gc10-test-01` to review the test run. Empty AP
-cells mean the fork did not return a class score. If it finds no true
-positives, it may omit the PR curve. Both completed runs produced the PR curve
-and confusion matrices. Use validation for future tuning and model selection.
-The recorded test run is a fixed checkpoint verification result.
-[Reviewed metrics and limitations](docs/checkpoint_evaluation.md)
-
-## Independent AGE-YOLO training
-
-From the repository root, verify the environment and original data. Prepare
-the derived dataset once, then verify its byte reproducibility:
-
-```sh
-source .venv/bin/activate
-python scripts/check_env.py
-python scripts/check_data.py
-test -d data/gc10-det-aug42-x4 || python -u scripts/augment_data.py
-python -u scripts/augment_data.py --verify
+```bash
+cp configs/baseline/age_yolo_b1.yaml configs/hpc.yaml
+nano configs/hpc.yaml
 python scripts/train.py --config configs/hpc.yaml --preflight
+python scripts/record_source.py
 ```
 
-Edit `configs/hpc.yaml` for training. Set `DEVICE` to the CUDA index
-authorized for the job and use an unused `RUN_ID` for each fresh run.
-From an authorized GPU shell on HPC, run
-`python -u scripts/train.py --config configs/hpc.yaml`. For PBS, submit
-from the repository root and monitor the run.
+In an authorized interactive allocation use
+`python -u scripts/train.py --config configs/hpc.yaml`. Alternatively use PBS
+below. Review `results.csv`, the native plots, `args.yaml`, `effective_config.json`
+and `weights/{best,last}.pt` in the run directory.
+
+For an authorized repeat of B1 validation, run from the repository root with an unused run ID.
+
+```bash
+python scripts/evaluate.py --checkpoint experiments/hpc-full-06/weights/best.pt \
+    --device "${DEVICE:?set assigned logical CUDA device}" --split val --run-id b1-val-03
+```
+
+For PBS, `qsub submit_eval.sh` reads DEVICE from configs/hpc.yaml and
+uses b1-val-03 by default. Set EVAL_RUN_ID to an unused ID for subsequent
+repeats. Monitor `_main_eval.log`.
+
+This saves the same evaluation outputs as B0 and records the supplied checkpoint
+digest. Test evaluation requires separate approval after model selection.
+
+## Experimental results
+
+| Experiment and measurement | Split | mAP50 | mAP50–95 |
+|---|---|---:|---:|
+| B0 released weights, standalone evaluation | Validation | 76.28% | 42.07% |
+| B0 released weights, approved historical evaluation | Test | 72.76% | 40.93% |
+| B1 epoch 84, training CSV | Validation | 69.59% | 34.22% |
+| B1 best.pt, standalone evaluation | Validation | 69.53% | 34.12% |
+
+B1 stopped after epoch 134. Standalone validation completed. Scientific review
+and milestone acceptance are pending. Differences in training batch and unknown
+details of the original run limit comparisons. [Experiment registry](docs/experiments.md)
+
+## HPC execution and recovery
+
+After recording the current source, submit from the repository root.
 
 ```bash
 job=$(qsub submit.sh)
@@ -177,41 +119,17 @@ qstat -f "$job"
 tail -F _main_train.log
 ```
 
-The launcher reuses `_main_train.log`. Each experiment keeps its own
-persistent `experiments/<run-id>/terminal.log`. To resume an interrupted run with a saved
-checkpoint, set `RESUME: true` and keep the same run ID and training settings.
-Monitor the run's `terminal.log` and review `results.csv`, `args.yaml`, and
-`weights/{best,last}.pt`. See the [HPC workflow](docs/hpc.md).
+Per-run logs persist in `experiments/<run-id>/terminal.log`. After an
+interruption, keep the run ID and experiment settings, change RESUME to true,
+run `python scripts/record_source.py` again and submit. The trainer first tries
+last.pt, then the recovery copy if the primary file is unreadable. See the
+[HPC guide](docs/hpc.md) and [provenance workflow](docs/reproducibility.md).
 
-The [baseline method](docs/baseline.md) records the augmentation assumptions,
-training settings, AMP check, and the remaining hardware checks. Use
-validation alone for checkpoint and model selection.
+## Citation and licensing
 
-## Planned reproducibility workflow
-
-1. Verify dataset provenance, terms, integrity, class mapping, and split protocol.
-2. Initialize the pinned upstream implementation and review its reference notes.
-3. Recreate the pinned environment and run the CUDA checker.
-4. Version the baseline configuration and validation protocol before execution.
-5. Train only with explicit authorization and available CUDA, preserving each run
-   in a unique directory with its configuration, logs, and provenance.
-6. Validate the baseline before selecting improvements; record actual outcomes,
-   limitations, and deviations.
-
-See [project rules](AGENTS.md), [data policy](data/README.md), and the
-[reproducibility checklist](docs/reproducibility.md).
-
-## Layout
-
-- `data/`: data policy and audit manifests. Local dataset payloads are ignored by Git.
-- `docs/`: reproducibility requirements and the AGE-YOLO source review.
-- `upstream/AGE-YOLO`: pinned official reference implementation.
-- `scripts/`: environment and dataset checks, augmentation, evaluation, and training.
-- `configs/`: training settings, dataset descriptors, and the reference baseline.
-- `submit.sh`: PBS launcher for the same Python training entry point.
-- `experiments/`: local run configurations, checkpoints, metrics, and logs.
-
-Keep local datasets, additional weights, generated experiment outputs, caches,
-virtual environments, and credentials out of FlawTrace's Git history.
-
-For UPES deployment, see [the HPC workflow](docs/hpc.md).
+Credit the [AGE-YOLO paper](https://doi.org/10.1016/j.engappai.2026.114690),
+[author implementation](https://github.com/gnmtdt/AGE-YOLO) and
+[GC10 dataset release](https://huggingface.co/datasets/YYYHHHH993/AGE-YOLO).
+The fork supplies an AGPL-3.0 license, and the release lists CC BY-NC 4.0 for
+the dataset. FlawTrace authorship metadata and licensing for original
+contributions await maintainer approval. [Attribution and provenance](docs/age_yolo_reference.md)

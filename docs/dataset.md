@@ -46,13 +46,13 @@ data/
 ## Preparation and validation
 
 Initialize the AGE-YOLO submodule and follow the
-[Python environment setup](../README.md#cuda-environment). Install
+[Python environment setup](../README.md#environment-installation). Install
 `libarchive-tools` if `bsdtar` is missing on Ubuntu. From the repository root:
 
 ```sh
 sudo apt-get install libarchive-tools  # only if bsdtar is missing
-.venv/bin/python scripts/prepare_data.py
-.venv/bin/python scripts/check_data.py
+python scripts/prepare_data.py
+python scripts/check_data.py
 ```
 
 Preparation reuses a verified cached prefix if present and refuses to
@@ -108,5 +108,5 @@ annotation rows.
   related production samples, and annotation correctness were outside this
   audit. Split membership remains the authors' original.
 
-No data augmentation was applied. Full findings and paths are recorded in
+This audit covers the original release. B1 offline augmentation is recorded in [the baseline method](baseline.md). Full findings and paths are recorded in
 [the audit manifest](../data/manifests/gc10-audit.json).

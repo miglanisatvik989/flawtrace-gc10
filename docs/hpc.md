@@ -1,33 +1,8 @@
 # FlawTrace on UPES HPC
 
 Run setup and submit jobs from the shared HPC checkout on `mgmt01`.
-## Install and prepare GC10-DET
-
-From the repository root on `mgmt01`:
-
-```bash
-bash scripts/setup_hpc.sh
-source /home/soft/anaconda3/etc/profile.d/conda.sh
-conda activate flawtrace-gc10
-if [[ ! -d data/gc10-det ]]; then python scripts/prepare_data.py; fi
-python scripts/check_data.py
-if [[ ! -d data/gc10-det-aug42-x4 ]]; then python scripts/augment_data.py; fi
-python scripts/augment_data.py --verify
-python scripts/train.py --config configs/hpc.yaml --preflight
-```
-
-Setup creates or reuses only `flawtrace-gc10`. It installs Python 3.12.14,
-the project pins including PyTorch 2.7.1+cu128 and torchvision 0.22.1+cu128,
-and Conda's `bsdtar`. The HPC build uses `opencv-python-headless==4.11.0.86`
-to import `cv2` without X11. Rerun the setup command above to migrate an
-existing environment.
-The verified trainer checks AMP with AGE-YOLO itself and initializes model
-weights from YAML on fresh runs.
-
-Training uses the deterministic AUG42 ×4 split under `data/gc10-det-aug42-x4`
-through `configs/gc10_augmented.yaml`. The dataset contains 7,336 training
-images and 11,524 training objects. Validation contains 230 images and 345
-objects. Run the standalone verifiers above after preparing or changing the dataset.
+Install the environment, prepare the original data and verify the augmented
+split using the [README workflow](../README.md#environment-installation).
 
 ## GPU verification and training
 
@@ -48,10 +23,11 @@ of 64 gives expected accumulation **1** and effective decay **0.0005** on
 the decayed weight group with other groups at zero. The run records the
 observed values. CUDA out-of-memory errors stop the job and appear in the log.
 
-The checked-in configuration records `hpc-full-06`. Choose an unused run ID
+The B1 snapshot records `hpc-full-06`. Choose an unused run ID
 for each new experiment. Submit from the repository root.
 
 ```bash
+python scripts/record_source.py
 job=$(qsub submit.sh)
 qstat -f "$job"
 tail -F _main_train.log
@@ -75,12 +51,14 @@ If the native `last.pt` is missing or unreadable, the launcher tries
 the separate atomic recovery copy from the most recent saved epoch.
 If the results CSV extends beyond the recovered checkpoint, the launcher
 archives that CSV with the attempt metadata and resumes the active CSV from
-the saved epoch. Earlier job logs remain available.
+the saved epoch. The per-run terminal log appends across attempts.
 
 ```bash
-run=experiments/hpc-full-06
+read -rp "Interrupted run ID: " id
+run="experiments/$id"
 ls -lh "$run/weights/"
 sed -i 's/^RESUME: false$/RESUME: true/' configs/hpc.yaml
+python scripts/record_source.py
 resume_job=$(qsub submit.sh)
 qstat -f "$resume_job"
 tail -F "$run/terminal.log"

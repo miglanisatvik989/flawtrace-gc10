@@ -10,9 +10,11 @@ import re
 import shutil
 import sys
 import traceback
+import time
+import platform
 from contextlib import redirect_stderr, redirect_stdout
 from copy import deepcopy
-from datetime import datetime
+from datetime import datetime, timezone
 from functools import partial
 from pathlib import Path
 from unittest.mock import patch
@@ -20,7 +22,7 @@ from unittest.mock import patch
 import torch
 import yaml
 
-from evaluate import ROOT, UPSTREAM, UPSTREAM_COMMIT, Tee, write_json
+from evaluate import ROOT, UPSTREAM, UPSTREAM_COMMIT, Tee, sha256, write_json
 
 
 TRAIN_KEYS = {
@@ -147,6 +149,9 @@ def train(config, options, run, model_yaml, data_yaml, device):
             saved = model.ckpt["train_args"]
             if Path(saved["project"]) / saved["name"] != run:
                 raise ValueError("Checkpoint belongs to a different experiment.")
+            if (any(saved.get(key) != value for key, value in options.items())
+                    or Path(saved["data"]).resolve() != data_yaml or saved["split"] != "val"):
+                raise ValueError("Checkpoint settings differ from this experiment.")
             restore_results(run, run / f"resume-{datetime.now():%Y%m%dT%H%M%S%f}.json", model.ckpt)
             break
         else:
@@ -197,6 +202,13 @@ def main():
         print(json.dumps({**config, "data": str(data_yaml), "model": str(model_yaml), "run": str(run)}, indent=2))
         return
 
+    deployment = ROOT / ".cache/source.json"
+    if not deployment.is_file():
+        parser.error("Run python scripts/record_source.py on the deployment host before training.")
+    source = json.loads(deployment.read_text())
+    if any(not (ROOT / name).is_file() or sha256(ROOT / name) != digest
+           for name, digest in source["sha256"].items()):
+        raise ValueError("Deployment changed. Run scripts/record_source.py before submission.")
     device = initialize_cuda(config["DEVICE"])
     if config["RESUME"]:
         if run.is_symlink() or not (run / "hpc.yaml").is_file():
@@ -206,11 +218,38 @@ def main():
     with (run / ".lock").open("a") as lock, (run / "terminal.log").open("a", buffering=1) as log:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         with redirect_stdout(Tee(sys.stdout, log)), redirect_stderr(Tee(sys.stderr, log)):
+            started = datetime.now(timezone.utc)
+            stamp = started.strftime("%Y%m%dT%H%M%S%fZ")
+            write_json(run / f"source-{stamp}.json", source)
+            attempt = run / f"attempt-{stamp}.json"
+            dataset = json.loads((ROOT / "data/manifests/gc10-provenance.json").read_text())
+            train_images = (data_yaml.parent / yaml.safe_load(data_yaml.read_text())["train"]).resolve()
+            augmented = train_images.parents[1]
+            info = {
+                "start_utc": started.isoformat(), "status": "started", "command": [sys.executable, *sys.argv],
+                "cwd": str(Path.cwd()), "python": platform.python_version(), "torch": torch.__version__,
+                "cuda": torch.version.cuda, "gpu": torch.cuda.get_device_name(device),
+                "gpu_uuid": str(torch.cuda.get_device_properties(device).uuid),
+                "free_vram_bytes": torch.cuda.mem_get_info(device)[0], "pbs_job_id": os.getenv("PBS_JOBID"),
+                "dataset_revision": dataset["revision"], "train_manifest_sha256": sha256(augmented / "train.csv"),
+                "augmentation": json.loads((augmented / "augmentation.json").read_text()),
+            }
+            write_json(attempt, info)
+            start_time = time.monotonic()
             try:
                 train(config, options, run, model_yaml, data_yaml, device)
-            except Exception:
+                info["checkpoint_sha256"] = {
+                    name: sha256(run / "weights" / name) for name in ("best.pt", "last.pt")
+                }
+                info["status"] = "completed"
+            except (Exception, KeyboardInterrupt) as error:
+                info["status"] = "interrupted" if isinstance(error, KeyboardInterrupt) else "failed"
                 traceback.print_exc()
                 raise SystemExit(1) from None
+            finally:
+                info["finish_utc"] = datetime.now(timezone.utc).isoformat()
+                info["duration_seconds"] = time.monotonic() - start_time
+                write_json(attempt, info)
 
 
 if __name__ == "__main__":

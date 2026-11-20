@@ -1,6 +1,6 @@
 # Execution
-DEVICE: "cuda:5"
-RUN_ID: "hpc-full-06"
+DEVICE: "cuda:0"
+RUN_ID: "hpc-next-01"
 RESUME: false
 SEED: 42
 

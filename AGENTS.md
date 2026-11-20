@@ -32,15 +32,13 @@ before selecting dependency versions. Do not commit or push without authorizatio
   environment, check CUDA availability, start training, monitor GPU usage,
   resume training, and review the completed results.
 - Use standard Python and Ultralytics functionality and standard terminal tools.
-  Do not build custom dashboards or monitoring systems. Defer training script
-  implementation until the training milestone is authorized.
+  Keep monitoring in the terminal and per-run log.
 - Verify the GPU, VRAM, CUDA runtime, and mixed precision. Explicitly select
   CUDA for the model and tensors used in training. Assess data loader workers
   against available CPU cores, RAM, shared memory, and GPU utilization.
 - Preserve the official AGE-YOLO training configuration. Document the hardware
   constraint and evidence for any required change.
-- Before full training, obtain separate authorization for a short training
-  benchmark. Record GPU utilization, peak VRAM, images per second, batch time,
+- Obtain separate authorization before running a training benchmark. Record GPU utilization, peak VRAM, images per second, batch time,
   and estimated epoch duration. Provide `nvidia-smi -l 1` for live monitoring.
 - Use the standard PyTorch and Ultralytics execution paths. Avoid experimental
   acceleration frameworks, custom CUDA kernels, and unnecessary optimizations.
@@ -48,3 +46,18 @@ before selecting dependency versions. Do not commit or push without authorizatio
 Follow [the reproducibility workflow](docs/reproducibility.md) as later stages
 are authorized. Keep local datasets, additional weights, generated outputs,
 and credentials out of FlawTrace's Git history. Version reproducibility metadata.
+
+## Research responsibilities and implementation
+
+ChatGPT handles research, experimental design and results analysis. Codex
+implements and validates approved changes. The user manually launches
+computational experiments on HPC, including evaluation.
+
+Use short procedural Python scripts with descriptive snake_case functions,
+a main() entry point and comments for logical sections. Read flat uppercase
+experiment YAML with yaml.safe_load() and access settings directly by key.
+Keep upstream dataset descriptors in their native format. Use PyTorch and
+native Ultralytics training and validation. Keep PBS scripts minimal and
+capture Git provenance before submission. Compute-node execution must work
+without Git. Use configs/hpc.yaml for editing and docs/experiments.md for
+permanent experiment IDs, evidence and review status.

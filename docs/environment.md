@@ -37,7 +37,7 @@ Those include `dill`, `requests`, `efficientnet-pytorch`, PyWavelets, and
 with that NumPy version. These choices require no modifications to the pinned
 upstream tree.
 
-See the [installation commands](../README.md#cuda-environment) and
+See the [installation commands](../README.md#environment-installation) and
 [65 exact installed package versions](../requirements.txt), including transitive
 dependencies. The install uses the official PyTorch CUDA wheel index and PyPI.
 The index strategy lets uv find an exact pin on PyPI when the CUDA index lists
@@ -74,30 +74,10 @@ The mixed-precision result establishes synthetic forward compatibility.
 Training, gradient scaling, and training memory usage remain untested.
 The checker uses native PyTorch autocast. [PyTorch AMP documentation](https://docs.pytorch.org/docs/2.7/amp.html)
 
-## Training preparation
+## HPC training
 
-The pinned training entry point specifies `device=0`, batch size 16 and
-640 px images. The bundled trainer moves the model and preprocessed images to
-its selected device, and the detection loss moves targets to that device.
-The fork defaults to `workers=8` and requests twice that number for detection
-validation, subject to its CPU and GPU count cap. It also defaults to
-`amp=True`. Its training-time AMP check attempts to load `yolo11n.pt`, which
-may trigger a download. Resolve that behavior during training preparation.
-The environment checker builds AGE-YOLO from YAML and loads no checkpoint.
-
-Keep eight workers as the reference setting for the later benchmark. The
-available CPU threads can accommodate it, but memory and shared memory use
-will depend on image decoding, augmentation, prefetching, and validation.
-If memory pressure or worker failures appear, compare four training workers
-with the reference and record any change. GPU utilization and throughput
-remain unmeasured. [PyTorch data loading documentation](https://docs.pytorch.org/docs/2.7/data.html#multi-process-data-loading)
-
-Monitor live GPU utilization and VRAM in another terminal:
-
-```sh
-nvidia-smi -l 1
-```
-
-Environment validation covers the installed dependencies and synthetic forward
-pass. GC10-DET provenance and splits, baseline settings, and checkpoint
-provenance if a checkpoint is selected remain open for later milestones.
+The current entry point probes AMP with a disposable copy of the configured
+detector. B1 used eight workers and the headless OpenCV wheel. See the
+[experiment registry](experiments.md) for run-specific evidence. For a
+portable Linux environment, create a Python 3.12.14 virtual environment and
+install the pinned wheel set with the CUDA index used by scripts/setup_hpc.sh.

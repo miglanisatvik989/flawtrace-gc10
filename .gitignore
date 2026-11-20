@@ -25,11 +25,13 @@
 *.hdf5
 
 # Generated experiment artifacts; keep curated metadata in docs/ or configs/.
+/artifacts/
 /experiments/
 /runs/
 /outputs/
 /results/
 /logs/
+/flawtrace-eval.o[0-9]*
 /flawtrace.o[0-9]*
 /flawtrace-check.o[0-9]*
 *.log

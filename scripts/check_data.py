@@ -161,7 +161,7 @@ def main():
         parser.exit(1, "Prepare GC10 first with scripts/prepare_data.py.\n")
     names = class_names(UPSTREAM_CONFIG)
     config = yaml.safe_load(CONFIG.read_text())
-    if any((CONFIG.parent / config[split]).resolve() != DATA / "images" / split for split in SPLITS):
+    if any((CONFIG.parent / config[split]).resolve() != (DATA / "images" / split).resolve() for split in SPLITS):
         parser.exit(1, "FlawTrace YAML paths do not match the audited splits.\n")
     if any(class_names(path) != names for path in (CONFIG, DATA / "gc10_data.yaml")):
         parser.exit(1, "GC10 class mapping differs from the pinned upstream YAML.\n")

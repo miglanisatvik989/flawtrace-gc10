@@ -52,20 +52,25 @@ def sha256(path):
         return hashlib.file_digest(stream, "sha256").hexdigest()
 
 
-def verify_inputs(checkpoint):
+def verify_inputs(checkpoint, official=False):
     if checkpoint.suffix != ".pt" or not checkpoint.is_file():
         raise RuntimeError("Supply a local .pt checkpoint.")
-    if sha256(checkpoint) != CHECKPOINT_SHA256:
+    digest = sha256(checkpoint)
+    if (official or checkpoint == UPSTREAM / "weights/pretrained_gc10.pt") and digest != CHECKPOINT_SHA256:
         raise RuntimeError("Checkpoint SHA-256 does not match the official GC10 checkpoint.")
+    return digest
 
 
-def load_model(checkpoint):
+def load_model(checkpoint, device_name):
     import torch
     import yaml
 
     if not torch.cuda.is_available():
         raise RuntimeError("CUDA is required for AGE-YOLO evaluation.")
-    device = torch.device("cuda:0")
+    device = torch.device(device_name)
+    if device.type != "cuda" or device.index is None or device.index >= torch.cuda.device_count():
+        raise ValueError(f"Select a visible indexed CUDA device, got {device_name}.")
+    torch.cuda.set_device(device)
     sys.path.insert(0, str(UPSTREAM))
     sys.dont_write_bytecode = True
     expected = UPSTREAM / "ultralytics" / "__init__.py"
@@ -83,7 +88,7 @@ def load_model(checkpoint):
     if model.task != "detect" or model.names != names:
         raise RuntimeError("Checkpoint task or class mapping disagrees with configs/gc10.yaml.")
     if any(tensor.device != device for tensor in model.model.parameters()):
-        raise RuntimeError("Checkpoint parameters must all be on cuda:0.")
+        raise RuntimeError("Checkpoint parameters must all be on the selected CUDA device.")
     return model, torch, ultralytics, device
 
 
@@ -98,7 +103,7 @@ def smoke(model, torch, device):
         if backend.device != device or not outputs or any(
             tensor.device != device or not torch.isfinite(tensor).all().item() for tensor in outputs
         ):
-            raise RuntimeError("Expected finite synthetic outputs and backend on cuda:0.")
+            raise RuntimeError("Expected finite synthetic outputs and backend on the selected CUDA device.")
     print(f"PASS: {parameters:,} checkpoint parameters, bundled detection backend on {device}")
     print(f"PASS: Finite synthetic FP32 outputs {[tuple(t.shape) for t in outputs]}")
 
@@ -130,7 +135,7 @@ def write_json(path, data):
     path.write_text(json.dumps(data, indent=2, sort_keys=True, allow_nan=False, default=str) + "\n")
 
 
-def evaluate(model, torch, ultralytics, device, checkpoint, split, run):
+def evaluate(model, torch, ultralytics, device, checkpoint, digest, split, run):
     from matplotlib import get_data_path
 
     manifest = MANIFESTS / f"gc10-{split}.csv"
@@ -144,7 +149,7 @@ def evaluate(model, torch, ultralytics, device, checkpoint, split, run):
         "split": split,
         "evaluator_sha256": sha256(Path(__file__)),
         "pinned_upstream_commit": UPSTREAM_COMMIT,
-        "checkpoint": {"path": str(checkpoint), "sha256": CHECKPOINT_SHA256},
+        "checkpoint": {"path": str(checkpoint), "sha256": digest},
         "dataset": {
             "revision": json.loads(provenance.read_text())["revision"],
             "config_sha256": sha256(CONFIG),
@@ -164,7 +169,7 @@ def evaluate(model, torch, ultralytics, device, checkpoint, split, run):
         "gpu": torch.cuda.get_device_name(device),
         "gpu_memory_bytes": torch.cuda.get_device_properties(device).total_memory,
         "nvidia_driver": subprocess.check_output(
-            ["nvidia-smi", "--query-gpu=driver_version", "--format=csv,noheader"], text=True
+            ["nvidia-smi", "-i", "GPU-" + str(torch.cuda.get_device_properties(device).uuid).removeprefix("GPU-"), "--query-gpu=driver_version", "--format=csv,noheader"], text=True
         ).splitlines()[0],
         "ultralytics": {"version": ultralytics.__version__, "path": ultralytics.__file__},
         "packages": {d.metadata["Name"]: d.version for d in importlib.metadata.distributions()},
@@ -194,9 +199,12 @@ def evaluate(model, torch, ultralytics, device, checkpoint, split, run):
         model.add_callback("on_val_start", record_settings)
         model.add_callback("on_val_end", verify_totals)
         print(f"Evaluating {split}: {images} manifest-verified images, {objects} objects.", flush=True)
+        # Start from the pinned validator defaults for every checkpoint.
+        model.overrides = {"model": str(checkpoint), "task": "detect"}
         metrics = model.val(
             data=str(staged_config), split=split, imgsz=IMAGE_SIZE, device=device,
-            project=str(run), name="plots", plots=True, exist_ok=False,
+            batch=16, workers=8, rect=True, half=False, conf=0.001, iou=0.7, max_det=300,
+            augment=False, agnostic_nms=False, project=str(run), name="plots", plots=True, exist_ok=False,
         )
 
     write_json(run / "metrics.json", {key: float(value) for key, value in metrics.results_dict.items()})
@@ -220,6 +228,8 @@ def evaluate(model, torch, ultralytics, device, checkpoint, split, run):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--checkpoint", type=Path, required=True)
+    parser.add_argument("--device", default="cuda:0", help="Authorized logical CUDA device.")
+    parser.add_argument("--official", action="store_true", help="Require the released B0 checkpoint digest.")
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--split", choices=("val", "test"))
     mode.add_argument("--smoke-test", action="store_true", help="Forward one synthetic input only.")
@@ -230,11 +240,11 @@ def main():
     if args.smoke_test and args.run_id:
         parser.error("--run-id is only used with --split.")
     checkpoint = args.checkpoint.resolve()
-    verify_inputs(checkpoint)
+    digest = verify_inputs(checkpoint, args.official)
     if args.smoke_test:
         with TemporaryDirectory(prefix="flawtrace-smoke-") as config:
             os.environ["YOLO_CONFIG_DIR"] = config
-            model, torch, _, device = load_model(checkpoint)
+            model, torch, _, device = load_model(checkpoint, args.device)
             smoke(model, torch, device)
         return
 
@@ -248,8 +258,8 @@ def main():
             try:
                 with TemporaryDirectory(prefix="settings-", dir=run) as config:
                     os.environ["YOLO_CONFIG_DIR"] = config
-                    model, torch, ultralytics, device = load_model(checkpoint)
-                    evaluate(model, torch, ultralytics, device, checkpoint, args.split, run)
+                    model, torch, ultralytics, device = load_model(checkpoint, args.device)
+                    evaluate(model, torch, ultralytics, device, checkpoint, digest, args.split, run)
             except Exception:
                 traceback.print_exc()
                 raise SystemExit(1) from None
