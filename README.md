@@ -13,7 +13,8 @@ The authors' GC10-DET release has been audited with its original splits. The
 official AGE-YOLO checkpoint scored **76.28% mAP50 on validation** and
 **72.76% on test**, with mAP50–95 of **42.07%** and **40.93%**, respectively.
 These are checkpoint verification results. Independent training reproduction
-remains pending. [Evaluation report](docs/checkpoint_evaluation.md)
+remains pending. The independent baseline is prepared for a manually run
+benchmark. [Evaluation report](docs/checkpoint_evaluation.md)
 
 Initialize the submodule from the repository root:
 
@@ -136,6 +137,66 @@ and confusion matrices. Use validation for future tuning and model selection.
 The recorded test run is a fixed checkpoint verification result.
 [Reviewed metrics and limitations](docs/checkpoint_evaluation.md)
 
+## Independent AGE-YOLO training
+
+From the repository root, verify the environment and original data. Prepare
+the derived dataset once, then verify its byte reproducibility:
+
+```sh
+source .venv/bin/activate
+python scripts/check_env.py
+python scripts/check_data.py
+test -d data/gc10-det-aug42-x4 || python -u scripts/augment_data.py
+python -u scripts/augment_data.py --verify
+python scripts/train.py --mode check-amp
+```
+
+Run the short benchmark manually after separate authorization. Use a new ID
+for each attempt. This run stops after 60 training batches.
+
+```sh
+python -u scripts/train.py --mode benchmark --run-id age-yolo-gc10-bench-01
+cat experiments/benchmarks/age-yolo-gc10-bench-01/benchmark.json
+tail -n 10 experiments/benchmarks/age-yolo-gc10-bench-01/gpu.csv
+```
+
+The [benchmark diagnostics](docs/benchmark_diagnostics.md) document the
+original run, an A/B synchronization check, and the warmed native
+batch-32 validation memory probe.
+
+Monitor the GPU in another terminal:
+
+```sh
+nvidia-smi -l 1
+```
+
+After reviewing benchmark results and authorizing full training, launch from
+your local terminal without an active AI session:
+
+```sh
+python -u scripts/train.py --mode full --run-id age-yolo-gc10-baseline-01
+```
+
+If interrupted after a checkpoint was saved, resume the same run ID:
+
+```sh
+python -u scripts/train.py --mode full --run-id age-yolo-gc10-baseline-01 --resume
+```
+
+Review the saved validation metrics, provenance, and checkpoints:
+
+```sh
+run=experiments/age-yolo-gc10-baseline-01
+cat "$run/run.json" "$run/effective_config.json"
+tail -n 6 "$run/results.csv"
+tail -n 30 "$run/terminal.log"
+ls -lh "$run/weights/best.pt" "$run/weights/last.pt"
+```
+
+The [baseline method](docs/baseline.md) records the augmentation assumptions,
+training settings, AMP check, and the remaining hardware checks. Use
+validation alone for checkpoint and model selection.
+
 ## Planned reproducibility workflow
 
 1. Verify dataset provenance, terms, integrity, class mapping, and split protocol.
@@ -155,8 +216,8 @@ See [project rules](AGENTS.md), [data policy](data/README.md), and the
 - `data/`: data policy and audit manifests. Local dataset payloads are ignored by Git.
 - `docs/`: reproducibility requirements and the AGE-YOLO source review.
 - `upstream/AGE-YOLO`: pinned official reference implementation.
-- `scripts/`: environment and dataset checks, dataset preparation, and evaluation.
-- `configs/`: GC10-DET dataset configuration.
+- `scripts/`: environment and dataset checks, augmentation, evaluation, and training.
+- `configs/`: GC10-DET and AGE-YOLO baseline configuration.
 
 Keep local datasets, additional weights, generated experiment outputs, caches,
 virtual environments, and credentials out of FlawTrace's Git history.

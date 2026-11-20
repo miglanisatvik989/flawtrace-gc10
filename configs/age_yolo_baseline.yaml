@@ -1,0 +1,16 @@
+epochs: 300
+batch: 16
+imgsz: 640
+optimizer: SGD
+lr0: 0.01
+patience: 50
+pretrained: false
+mosaic: 1.0
+fliplr: 0.0
+flipud: 0.0
+scale: 0.1
+hsv_h: 0.01
+hsv_s: 0.2
+hsv_v: 0.2
+seed: 42
+device: 0
