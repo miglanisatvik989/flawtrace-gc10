@@ -9,8 +9,8 @@ and computational resources.
 
 The official AGE-YOLO implementation is pinned as a Git submodule at
 `upstream/AGE-YOLO` (commit `99002665ff2f7faa5013c081b1b8f547ae4566ec`).
-The GC10-DET dataset protocol and FlawTrace baseline configuration are pending.
-No FlawTrace baseline results are available.
+The authors' GC10-DET release has been acquired and audited with its original
+splits. The FlawTrace baseline configuration and results are pending.
 
 Initialize the submodule from the repository root:
 
@@ -44,6 +44,21 @@ The checker imports Ultralytics from the pinned submodule and uses the official
 model YAML and a synthetic input. See the [environment record](docs/environment.md)
 for the tested host, dependency choices, and smoke-test results.
 
+## GC10-DET setup
+
+After initializing the submodule and installing the Python environment above,
+make `bsdtar` available on PATH (`libarchive-tools` on Ubuntu), then run
+from the repository root:
+
+```sh
+.venv/bin/python scripts/prepare_data.py
+.venv/bin/python scripts/check_data.py
+```
+
+The preparation script fetches only the GC10 portion of the authors' pinned
+archive. See the [dataset record](docs/dataset.md) for usage terms, provenance,
+and integrity findings.
+
 ## Planned reproducibility workflow
 
 1. Verify dataset provenance, terms, integrity, class mapping, and split protocol.
@@ -60,11 +75,11 @@ See [project rules](AGENTS.md), [data policy](data/README.md), and the
 
 ## Layout
 
-- `data/`: data policy; local dataset payloads are ignored by Git.
+- `data/`: data policy and audit manifests. Local dataset payloads are ignored by Git.
 - `docs/`: reproducibility requirements and the AGE-YOLO source review.
 - `upstream/AGE-YOLO`: pinned official reference implementation.
-- `scripts/`: CUDA and AGE-YOLO environment check.
-- `configs/`: deferred until baseline settings are established.
+- `scripts/`: environment and dataset setup and checks.
+- `configs/`: GC10-DET dataset configuration.
 
 Keep local datasets, additional weights, generated experiment outputs, caches,
 virtual environments, and credentials out of FlawTrace's Git history.

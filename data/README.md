@@ -1,12 +1,12 @@
 # Dataset policy
 
-GC10-DET is the intended primary dataset. Acquisition source, version, usage
-terms, and split protocol have not yet been verified for this repository.
-No dataset has been downloaded during foundation setup.
+The authors' GC10-DET release lives locally under `data/gc10-det/`. See the
+[dataset record](../docs/dataset.md) for the pinned source, usage terms,
+preparation commands, and integrity audit.
 
-Place future local payloads under `data/`, where Git ignores them. Keep only
-small provenance and split manifests under `data/manifests/` when available;
-do not put images, annotations, archives, or credentials in that exception.
+Keep local payloads under `data/`, where Git ignores them. Keep only
+provenance and split manifests under `data/manifests/`. Do not put images,
+annotations, archives, or credentials in that exception.
 
 Before baseline work, record the source URL, access date, release or archive
 identity, usage terms, checksums, class mapping, annotation format, split

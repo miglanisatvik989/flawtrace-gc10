@@ -1,0 +1,16 @@
+# Pass this YAML by absolute filename to the pinned AGE-YOLO loader.
+train: ../data/gc10-det/images/train
+val: ../data/gc10-det/images/val
+test: ../data/gc10-det/images/test
+nc: 10
+names:
+  - punching_hole
+  - welding_line
+  - crescent_gap
+  - water_spot
+  - oil_spot
+  - silk_spot
+  - inclusion
+  - rolled_pit
+  - crease
+  - waist_folding

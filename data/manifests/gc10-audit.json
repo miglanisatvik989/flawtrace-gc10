@@ -1,0 +1,129 @@
+{
+  "author_test_list": {
+    "entries": 230,
+    "missing_from_author_list": [],
+    "missing_from_test_images": []
+  },
+  "duplicates": {
+    "decoded_rgb": {
+      "across_splits": [],
+      "within_split": {
+        "test": [],
+        "train": [],
+        "val": []
+      }
+    },
+    "file_sha256": {
+      "across_splits": [],
+      "within_split": {
+        "test": [],
+        "train": [],
+        "val": []
+      }
+    }
+  },
+  "splits": {
+    "test": {
+      "dimensions": {
+        "2048x1000": 230
+      },
+      "images": 230,
+      "issues": {
+        "corrupt_images": [],
+        "duplicate_image_stems": [],
+        "empty_labels": [],
+        "invalid_boxes": [],
+        "invalid_class_ids": [],
+        "malformed_rows": [],
+        "missing_labels": [],
+        "orphan_labels": [],
+        "rounding_only_edges": [],
+        "unexpected_entries": [],
+        "unreadable_labels": []
+      },
+      "label_files": 230,
+      "objects": 337,
+      "per_class": {
+        "crease": 12,
+        "crescent_gap": 20,
+        "inclusion": 36,
+        "oil_spot": 52,
+        "punching_hole": 22,
+        "rolled_pit": 6,
+        "silk_spot": 95,
+        "waist_folding": 26,
+        "water_spot": 26,
+        "welding_line": 42
+      }
+    },
+    "train": {
+      "dimensions": {
+        "2048x1000": 1834
+      },
+      "images": 1834,
+      "issues": {
+        "corrupt_images": [],
+        "duplicate_image_stems": [],
+        "empty_labels": [
+          "labels/train/img_02_4406772100_00175.txt",
+          "labels/train/img_06_3402617700_00988.txt"
+        ],
+        "invalid_boxes": [],
+        "invalid_class_ids": [],
+        "malformed_rows": [],
+        "missing_labels": [],
+        "orphan_labels": [],
+        "rounding_only_edges": [],
+        "unexpected_entries": [],
+        "unreadable_labels": []
+      },
+      "label_files": 1834,
+      "objects": 2881,
+      "per_class": {
+        "crease": 43,
+        "crescent_gap": 219,
+        "inclusion": 263,
+        "oil_spot": 460,
+        "punching_hole": 283,
+        "rolled_pit": 75,
+        "silk_spot": 713,
+        "waist_folding": 107,
+        "water_spot": 293,
+        "welding_line": 425
+      }
+    },
+    "val": {
+      "dimensions": {
+        "2048x1000": 230
+      },
+      "images": 230,
+      "issues": {
+        "corrupt_images": [],
+        "duplicate_image_stems": [],
+        "empty_labels": [],
+        "invalid_boxes": [],
+        "invalid_class_ids": [],
+        "malformed_rows": [],
+        "missing_labels": [],
+        "orphan_labels": [],
+        "rounding_only_edges": [],
+        "unexpected_entries": [],
+        "unreadable_labels": []
+      },
+      "label_files": 230,
+      "objects": 345,
+      "per_class": {
+        "crease": 19,
+        "crescent_gap": 26,
+        "inclusion": 48,
+        "oil_spot": 57,
+        "punching_hole": 24,
+        "rolled_pit": 4,
+        "silk_spot": 76,
+        "waist_folding": 10,
+        "water_spot": 35,
+        "welding_line": 46
+      }
+    }
+  }
+}

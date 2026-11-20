@@ -1,0 +1,24 @@
+{
+  "source_url": "https://huggingface.co/datasets/YYYHHHH993/AGE-YOLO",
+  "revision": "93d2bc4420b024d3cbd825610ad7aad7b2544311",
+  "accessed_utc": "2026-11-20",
+  "license": "CC-BY-NC-4.0",
+  "license_url": "https://creativecommons.org/licenses/by-nc/4.0/",
+  "archive_url": "https://huggingface.co/datasets/YYYHHHH993/AGE-YOLO/resolve/93d2bc4420b024d3cbd825610ad7aad7b2544311/AGE-YOLO-datasets.rar",
+  "archive_bytes": 1882507969,
+  "archive_sha256_published": "fb6b6b9d9709a75b05f0adde5315209a0d03b2e182fc428c181c5aab72bd5b13",
+  "archive_sha256_verified_locally": false,
+  "archive_root_directories": ["gc10", "pcb", "neu"],
+  "gc10_prefix_bytes": 961556760,
+  "gc10_prefix_sha256": "9d9370dceb77ceb05de7d3c571ce89632fb9430b83b0f47c86058794295a3b18",
+  "rar_end_header_hex": "1d77565103050400",
+  "gc10_root_entries": ["gc10_data.yaml", "images", "labels", "testlist_gc10.txt"],
+  "extracted_bytes": 961231330,
+  "extracted_files": 4590,
+  "archive_metadata_sha256": {
+    "gc10_data.yaml": "fad9c735500132cd8f03cb6d4acc568b0ad754f5d5d2d4cb1f85c6b3fb879302",
+    "testlist_gc10.txt": "15f3a69bd734d2ce8ffc86e4becfcc8dc20f6b144605555d1b123263e675d155"
+  },
+  "age_yolo_commit": "99002665ff2f7faa5013c081b1b8f547ae4566ec",
+  "split_policy": "Use archive image and label directory membership unchanged."
+}
