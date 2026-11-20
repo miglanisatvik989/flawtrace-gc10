@@ -1,14 +1,14 @@
 # Reproducibility checklist
 
-These are planned requirements, not completed validation or experimental results.
+This checklist describes the workflow for future FlawTrace experiments.
 
 ## Before implementation
 
 - Verify GC10-DET provenance and usage terms as described in the
   [data policy](../data/README.md).
-- Verify the official AGE-YOLO paper and implementation. Record their URLs,
-  repository commit, license, pretrained weight source and checksum if used,
-  and any local changes. Upstream identity is currently unresolved.
+- Review the [pinned AGE-YOLO reference](age_yolo_reference.md) for the paper,
+  repository commit, license, checkpoints, and implementation discrepancies.
+  Record any approved deviations and the checksum of any weights used.
 - Establish hardware and software requirements before choosing dependency
   versions. Record Python, framework, dependencies, OS, GPU, driver, and CUDA
   versions in the eventual environment record.
@@ -22,8 +22,7 @@ These are planned requirements, not completed validation or experimental results
   differences from the reference methodology before execution.
 - Confirm CUDA availability. Training must fail clearly if CUDA is unavailable;
   CPU fallback is forbidden.
-- Obtain explicit training authorization. Foundation setup does not authorize
-  training, evaluation implementation, or downloads.
+- Obtain explicit authorization before launching training or evaluation.
 
 ## For each future experiment
 
@@ -39,9 +38,10 @@ These are planned requirements, not completed validation or experimental results
 
 ## Decisions still required
 
-Dataset source and split protocol; official upstream identity and commit;
-available CUDA hardware and compatible environment; baseline configuration,
-validation criteria, and durable storage for ignored experiment artifacts.
+Confirm the dataset source and split protocol, CUDA hardware and compatible
+environment, baseline configuration, validation criteria, and durable storage
+for ignored experiment artifacts. Verify checkpoint provenance if a checkpoint
+will be used.
 
 Create `scripts/` and `configs/` only when approved implementation work needs
 them. Do not add placeholder code, speculative dependency pins, or infrastructure.
