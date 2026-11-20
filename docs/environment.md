@@ -1,0 +1,96 @@
+# AGE-YOLO CUDA environment
+
+## Host
+
+| Component | Observed version or value |
+| --- | --- |
+| OS | Ubuntu 26.04.1 LTS, Linux x86-64 under WSL2 |
+| Kernel | `6.18.33.1-microsoft-standard-WSL2` |
+| Python available | CPython 3.12.14 and system CPython 3.14.4 |
+| GPU | NVIDIA GeForce RTX 5050 Laptop GPU |
+| GPU memory and compute capability | 8,151 MiB and 12.0 (`sm_120`) |
+| NVIDIA driver | 610.74, as reported by `nvidia-smi` |
+| Driver CUDA support | CUDA UMD 13.3 as reported by `nvidia-smi`. No `nvcc` was present on PATH. |
+| CPU visible to WSL2 | Intel Core i7-13700HX, 24 logical CPUs. `lscpu` reports 12 cores in the guest topology. |
+| Host memory visible to WSL2 | 7.6 GiB RAM total, 5.7 GiB available at inspection, and 3.9 GiB `/dev/shm` capacity. |
+
+## Version selection
+
+CPython 3.12.14 is available on this host and supported by torchvision 0.22.
+PyTorch 2.7.1 and torchvision 0.22.1 are an official CUDA 12.8 wheel pairing.
+PyTorch 2.7 introduced Blackwell support and CUDA 12.8 supports `sm_120`.
+The newer driver can run the CUDA 12.8 binaries through driver backward
+compatibility. The wheels supply the CUDA runtime libraries, so a local CUDA
+compiler is unnecessary for this check.
+
+- [PyTorch wheel pairing](https://pytorch.org/get-started/previous-versions/#v271)
+- [torchvision and Python compatibility](https://github.com/pytorch/vision/tree/v0.22.1#installation)
+- [PyTorch Blackwell support](https://pytorch.org/blog/pytorch-2-7/)
+- [NVIDIA CUDA 12.8 release notes](https://docs.nvidia.com/cuda/archive/12.8.0/cuda-toolkit-release-notes/)
+- [NVIDIA driver compatibility](https://docs.nvidia.com/deploy/cuda-compatibility/latest/minor-version-compatibility.html)
+
+The dependency list takes the union of upstream's two manifests except for the
+public Ultralytics distribution, then adds imports used by the bundled fork.
+Those include `dill`, `requests`, `efficientnet-pytorch`, PyWavelets, and
+`ultralytics-thop` (supplies the `thop` module). NumPy 1.26.4 retains the
+`np.trapz` API used in the fork's metrics code, and OpenCV 4.11 is compatible
+with that NumPy version. These choices require no modifications to the pinned
+upstream tree.
+
+See the [installation commands](../README.md#cuda-environment) and
+[65 exact installed package versions](../requirements.txt), including transitive
+dependencies. The install uses the official PyTorch CUDA wheel index and PyPI.
+The index strategy lets uv find an exact pin on PyPI when the CUDA index lists
+the package but lacks that version.
+
+## Smoke test on November 20, 2026
+
+Ran `.venv/bin/python scripts/check_env.py` using the pinned AGE-YOLO commit
+`99002665ff2f7faa5013c081b1b8f547ae4566ec`.
+
+| Check | Result |
+| --- | --- |
+| PyTorch and torchvision imports | Passed with PyTorch `2.7.1+cu128` and torchvision `0.22.1+cu128` under CPython 3.12.14. |
+| CUDA availability | `torch.cuda.is_available()` returned `True`. PyTorch reported CUDA 12.8. |
+| CUDA tensor operations | A 2 × 2 matrix multiplication on `cuda:0` returned the expected result. |
+| Ultralytics import | Bundled version 8.3.9 resolved to `/home/kaizen/code/flawtrace-gc10/upstream/AGE-YOLO/ultralytics/__init__.py`. |
+| Official model YAML | `ultralytics/cfg/models/age_yolo.yaml` loaded and built 3,418,721 parameters. |
+| CUDA forward pass | A synthetic FP32 input of shape `(1, 3, 640, 640)` returned four tensors on `cuda:0`. |
+| CUDA mixed precision | The same model and input passed with FP16 CUDA autocast. All four outputs remained finite and on `cuda:0`, with both FP16 and FP32 output tensors. |
+| Output finiteness | All entries in all four tensors were finite. Output shapes were `(1, 14, 8400)`, `(1, 74, 80, 80)`, `(1, 74, 40, 40)`, and `(1, 74, 20, 20)`. |
+| CUDA unavailable | With `CUDA_VISIBLE_DEVICES=""`, the checker exited with an explicit CUDA error before constructing the model. |
+| Fresh environment replay | The documented sync command reproduced all 65 package versions. `uv pip check` and the CUDA smoke test passed again. |
+
+The upstream fork emitted deprecation warnings and a syntax warning in an
+unused module. The model parser selected its only configured scale, `n`.
+The mixed-precision result establishes synthetic forward compatibility.
+Training, gradient scaling, and training memory usage remain untested.
+The checker uses native PyTorch autocast. [PyTorch AMP documentation](https://docs.pytorch.org/docs/2.7/amp.html)
+
+## Training preparation
+
+The pinned training entry point specifies `device=0`, batch size 16 and
+640 px images. The bundled trainer moves the model and preprocessed images to
+its selected device, and the detection loss moves targets to that device.
+The fork defaults to `workers=8` and requests twice that number for detection
+validation, subject to its CPU and GPU count cap. It also defaults to
+`amp=True`. Its training-time AMP check attempts to load `yolo11n.pt`, which
+may trigger a download. Resolve that behavior during training preparation.
+The environment checker builds AGE-YOLO from YAML and loads no checkpoint.
+
+Keep eight workers as the reference setting for the later benchmark. The
+available CPU threads can accommodate it, but memory and shared memory use
+will depend on image decoding, augmentation, prefetching, and validation.
+If memory pressure or worker failures appear, compare four training workers
+with the reference and record any change. GPU utilization and throughput
+remain unmeasured. [PyTorch data loading documentation](https://docs.pytorch.org/docs/2.7/data.html#multi-process-data-loading)
+
+Monitor live GPU utilization and VRAM in another terminal:
+
+```sh
+nvidia-smi -l 1
+```
+
+Environment validation covers the installed dependencies and synthetic forward
+pass. GC10-DET provenance and splits, baseline settings, and checkpoint
+provenance if a checkpoint is selected remain open for later milestones.
