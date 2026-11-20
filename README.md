@@ -12,9 +12,9 @@ The official AGE-YOLO implementation is pinned as a Git submodule at
 The authors' GC10-DET release has been audited with its original splits. The
 official AGE-YOLO checkpoint scored **76.28% mAP50 on validation** and
 **72.76% on test**, with mAP50–95 of **42.07%** and **40.93%**, respectively.
-These are checkpoint verification results. Independent training reproduction
-remains pending. The independent baseline is prepared for a manually run
-benchmark. [Evaluation report](docs/checkpoint_evaluation.md)
+These metrics are from the authors’ checkpoint. The independent batch-64
+baseline, `hpc-full-06`, was in progress on UPES HPC at consolidation. Final
+independent baseline metrics are pending. [Evaluation report](docs/checkpoint_evaluation.md)
 
 Initialize the submodule from the repository root:
 
@@ -29,6 +29,20 @@ includes the checkpoint files and demo images tracked by upstream. See the
 licensing questions, and upstream script discrepancies.
 
 ## CUDA environment
+
+Development and experiments run on UPES HPC. On `mgmt01`, install the
+pinned Conda environment and activate it from the repository root.
+
+```bash
+bash scripts/setup_hpc.sh
+source /home/soft/anaconda3/etc/profile.d/conda.sh
+conda activate flawtrace-gc10
+```
+
+The setup uses headless OpenCV on HPC. The portable Python entry point can
+also be invoked directly from a shell with an authorized GPU.
+
+### Portable environment installation
 
 Use CPython 3.12.14 and uv (tested with 0.12.5) on Linux x86-64 with an NVIDIA
 GPU and a driver compatible with CUDA 12.8. After initializing the submodule,
@@ -148,50 +162,26 @@ python scripts/check_env.py
 python scripts/check_data.py
 test -d data/gc10-det-aug42-x4 || python -u scripts/augment_data.py
 python -u scripts/augment_data.py --verify
-python scripts/train.py --mode check-amp
+python scripts/train.py --config configs/hpc.yaml --preflight
 ```
 
-Run the short benchmark manually after separate authorization. Use a new ID
-for each attempt. This run stops after 60 training batches.
+Edit `configs/hpc.yaml` for training. Set `DEVICE` to the CUDA index
+authorized for the job and use an unused `RUN_ID` for each fresh run.
+From an authorized GPU shell on HPC, run
+`python -u scripts/train.py --config configs/hpc.yaml`. For PBS, submit
+from the repository root and monitor the run.
 
-```sh
-python -u scripts/train.py --mode benchmark --run-id age-yolo-gc10-bench-01
-cat experiments/benchmarks/age-yolo-gc10-bench-01/benchmark.json
-tail -n 10 experiments/benchmarks/age-yolo-gc10-bench-01/gpu.csv
+```bash
+job=$(qsub submit.sh)
+qstat -f "$job"
+tail -F _main_train.log
 ```
 
-The [benchmark diagnostics](docs/benchmark_diagnostics.md) document the
-original run, an A/B synchronization check, and the warmed native
-batch-32 validation memory probe.
-
-Monitor the GPU in another terminal:
-
-```sh
-nvidia-smi -l 1
-```
-
-After reviewing benchmark results and authorizing full training, launch from
-your local terminal without an active AI session:
-
-```sh
-python -u scripts/train.py --mode full --run-id age-yolo-gc10-baseline-01
-```
-
-If interrupted after a checkpoint was saved, resume the same run ID:
-
-```sh
-python -u scripts/train.py --mode full --run-id age-yolo-gc10-baseline-01 --resume
-```
-
-Review the saved validation metrics, provenance, and checkpoints:
-
-```sh
-run=experiments/age-yolo-gc10-baseline-01
-cat "$run/run.json" "$run/effective_config.json"
-tail -n 6 "$run/results.csv"
-tail -n 30 "$run/terminal.log"
-ls -lh "$run/weights/best.pt" "$run/weights/last.pt"
-```
+The launcher reuses `_main_train.log`. Each experiment keeps its own
+persistent `experiments/<run-id>/terminal.log`. To resume an interrupted run with a saved
+checkpoint, set `RESUME: true` and keep the same run ID and training settings.
+Monitor the run's `terminal.log` and review `results.csv`, `args.yaml`, and
+`weights/{best,last}.pt`. See the [HPC workflow](docs/hpc.md).
 
 The [baseline method](docs/baseline.md) records the augmentation assumptions,
 training settings, AMP check, and the remaining hardware checks. Use
@@ -217,7 +207,11 @@ See [project rules](AGENTS.md), [data policy](data/README.md), and the
 - `docs/`: reproducibility requirements and the AGE-YOLO source review.
 - `upstream/AGE-YOLO`: pinned official reference implementation.
 - `scripts/`: environment and dataset checks, augmentation, evaluation, and training.
-- `configs/`: GC10-DET and AGE-YOLO baseline configuration.
+- `configs/`: training settings, dataset descriptors, and the reference baseline.
+- `submit.sh`: PBS launcher for the same Python training entry point.
+- `experiments/`: local run configurations, checkpoints, metrics, and logs.
 
 Keep local datasets, additional weights, generated experiment outputs, caches,
 virtual environments, and credentials out of FlawTrace's Git history.
+
+For UPES deployment, see [the HPC workflow](docs/hpc.md).

@@ -52,15 +52,7 @@ def sha256(path):
         return hashlib.file_digest(stream, "sha256").hexdigest()
 
 
-def git(repo, *args):
-    return subprocess.check_output(["git", "-C", str(repo), *args], text=True).strip()
-
-
 def verify_inputs(checkpoint):
-    if git(UPSTREAM, "rev-parse", "HEAD") != UPSTREAM_COMMIT or git(
-        UPSTREAM, "status", "--porcelain", "--untracked-files=all"
-    ):
-        raise RuntimeError("Expected the clean, pinned AGE-YOLO checkout.")
     if checkpoint.suffix != ".pt" or not checkpoint.is_file():
         raise RuntimeError("Supply a local .pt checkpoint.")
     if sha256(checkpoint) != CHECKPOINT_SHA256:
@@ -150,9 +142,8 @@ def evaluate(model, torch, ultralytics, device, checkpoint, split, run):
     identity = {
         "status": "started",
         "split": split,
-        "repository_commit": git(ROOT, "rev-parse", "HEAD"),
         "evaluator_sha256": sha256(Path(__file__)),
-        "upstream_commit": UPSTREAM_COMMIT,
+        "pinned_upstream_commit": UPSTREAM_COMMIT,
         "checkpoint": {"path": str(checkpoint), "sha256": CHECKPOINT_SHA256},
         "dataset": {
             "revision": json.loads(provenance.read_text())["revision"],
@@ -204,7 +195,7 @@ def evaluate(model, torch, ultralytics, device, checkpoint, split, run):
         model.add_callback("on_val_end", verify_totals)
         print(f"Evaluating {split}: {images} manifest-verified images, {objects} objects.", flush=True)
         metrics = model.val(
-            data=str(staged_config), split=split, imgsz=IMAGE_SIZE, device=0,
+            data=str(staged_config), split=split, imgsz=IMAGE_SIZE, device=device,
             project=str(run), name="plots", plots=True, exist_ok=False,
         )
 

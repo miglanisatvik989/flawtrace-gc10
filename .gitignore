@@ -30,6 +30,8 @@
 /outputs/
 /results/
 /logs/
+/flawtrace.o[0-9]*
+/flawtrace-check.o[0-9]*
 *.log
 
 # Python caches, packaging, and tool caches.

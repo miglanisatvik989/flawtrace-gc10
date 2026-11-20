@@ -147,7 +147,7 @@ python -u scripts/augment_data.py --verify
 ```
 
 From the allocated GPU node, manually run `python scripts/check_env.py`
-and `python scripts/train.py --mode check-amp` before a separately authorized
+and the AMP check at training startup before a separately authorized
 benchmark. Leave the scheduler's `CUDA_VISIBLE_DEVICES` mask intact. The
 wrapper uses logical `cuda:0` within that mask and selects the matching
 physical GPU by UUID for `nvidia-smi`. Follow the site's resource and

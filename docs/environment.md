@@ -43,6 +43,13 @@ dependencies. The install uses the official PyTorch CUDA wheel index and PyPI.
 The index strategy lets uv find an exact pin on PyPI when the CUDA index lists
 the package but lacks that version.
 
+On UPES HPC, run `bash scripts/setup_hpc.sh` from the repository root on
+`mgmt01`. The script uses `opencv-python-headless==4.11.0.86` so importing
+`cv2` on compute nodes does not require the X11 library `libXext.so.6`.
+It takes the version from the shared OpenCV pin, removes conflicting OpenCV
+wheels from `flawtrace-gc10` during migration, and checks the import after
+installation. All other packages use the shared pins.
+
 ## Smoke test on November 20, 2026
 
 Ran `.venv/bin/python scripts/check_env.py` using the pinned AGE-YOLO commit

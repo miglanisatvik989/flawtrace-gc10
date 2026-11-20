@@ -1,3 +1,5 @@
+> Historical benchmark record. The commands below used the earlier diagnostic trainer.
+
 # AGE-YOLO benchmark and validation memory
 
 ## Review of runs 02 and 03
