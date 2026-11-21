@@ -135,7 +135,7 @@ def write_json(path, data):
     path.write_text(json.dumps(data, indent=2, sort_keys=True, allow_nan=False, default=str) + "\n")
 
 
-def evaluate(model, torch, ultralytics, device, checkpoint, digest, split, run, validator=None):
+def evaluate(model, torch, ultralytics, device, checkpoint, digest, split, run, validator=None, image_size=IMAGE_SIZE):
     from matplotlib import get_data_path
 
     manifest = MANIFESTS / f"gc10-{split}.csv"
@@ -202,7 +202,7 @@ def evaluate(model, torch, ultralytics, device, checkpoint, digest, split, run, 
         # Start from the pinned validator defaults for every checkpoint.
         model.overrides = {"model": str(checkpoint), "task": "detect"}
         metrics = model.val(
-            validator=validator, data=str(staged_config), split=split, imgsz=IMAGE_SIZE, device=device,
+            validator=validator, data=str(staged_config), split=split, imgsz=image_size, device=device,
             batch=16, workers=8, rect=True, half=False, conf=0.001, iou=0.7, max_det=300,
             augment=False, agnostic_nms=False, project=str(run), name="plots", plots=True, exist_ok=False,
         )

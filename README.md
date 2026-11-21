@@ -112,9 +112,12 @@ revision is unknown. Independent B1 test evaluation remains outstanding.
 
 D1 is complete and scientifically reviewed. Both checkpoints recalled
 smaller-area defects less often on validation, and B1 had 13 localization
-errors in the narrowest short-side quartile. E1, higher-resolution
-inference, is the next approved experiment.
+errors in the narrowest short-side quartile.
 [Reviewed D1 report](docs/results/d1_error_analysis.md) · [Research plan](docs/research_plan.md)
+
+E1 is complete and independently reviewed. At 960, validation mAP50–95
+fell from 34.12% to 17.24%. E1A evaluates whether the two views can be
+combined using saved predictions. [Reviewed E1 report](docs/results/e1_resolution.md)
 
 ## HPC execution and recovery
 

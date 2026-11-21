@@ -90,5 +90,12 @@ the original run directory with `sha256sum -c /path/to/docs/b1-artifacts.sha256`
 Completed and scientifically reviewed. Run `d1-baseline-01` compared B0
 and B1 on 230 validation images with 345 objects. Native AP passed parity
 for both checkpoints. The complete run and PBS log are archived under
-`artifacts/D1/`. E1 is the next approved experiment.
+`artifacts/D1/`. E1 followed D1.
 [Reviewed D1 report](results/d1_error_analysis.md) · [Research plan](research_plan.md)
+
+## E1 — Higher-resolution inference
+
+Completed and independently reviewed. Run `e1-resolution-01` reproduced
+the D1 control exactly. At 960, mAP50–95 fell from 34.12% to 17.24%.
+The archived run is under `artifacts/E1/`.
+[Results](results/e1_resolution.md) · [Protocol](research_plan.md#e1-protocol)
