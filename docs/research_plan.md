@@ -23,8 +23,8 @@ all preprocessing, inference and postprocessing in end-to-end latency.
 | D1 | Baseline error analysis | Completed and scientifically reviewed |
 | E1 | Higher-resolution inference | Completed and independently reviewed |
 | E1A | Offline cross-resolution prediction fusion | Completed and scientifically reviewed. Negative result. |
-| E2 | Matched-resolution training at 960 | Test whether training at 960 mitigates E1 localization degradation |
-| E3 | Tiled inference | Conditional on E2 |
+| E2 | Matched-resolution training at 960 | Completed and scientifically reviewed. Mixed results. |
+| E3 | Fixed two-crop tiled inference | Next approved bounded diagnostic |
 | E4 | Prediction fusion | Conditional on E3 |
 | E5 | Selective refinement | Conditional on E4 |
 | V1 | Experimental verification | Conditional on identifying a method worth verifying |

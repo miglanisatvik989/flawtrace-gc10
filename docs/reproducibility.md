@@ -10,8 +10,10 @@ configuration and before submitting or resuming. Keep the deployment and its
 submodule fixed while queued or running. This captures HEAD, working-tree
 status, the tracked diff, untracked source text, deployed file digests and the
 actual submodule revision in an ignored local record. Review any untracked
-files first. Training checks the recorded file digests and copies the record
-into the experiment directory. Git is needed only on the management node.
+files first. For a named training YAML, pass `--config` with the same path to source
+capture and training. Training checks the selected YAML, model and data
+configuration, and required runner files. Other recorded files remain
+available for provenance. Git is needed only on the management node.
 
 Each attempt records the command, PBS ID if present, start time, source and
 dataset identity, augmentation metadata, runtime versions, GPU details and

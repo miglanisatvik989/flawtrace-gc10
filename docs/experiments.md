@@ -118,3 +118,11 @@ Measured CPU fusion overhead and estimated two-view latency are
 reported separately. Both fusion rules reduced AP, and F0 had the highest
 recall at every evaluated FP/image budget. The negative result redirects
 E2 to matched-resolution training. [Reviewed E1A report](results/e1a_fusion.md)
+
+## E2 — Matched-resolution training at 960
+
+Training and standalone evaluation are complete and scientifically
+reviewed, with mixed results. E2 at 960 restored the severe E1 degradation,
+improved precision and strict-FP-budget recall, and yielded a +0.10-point
+mAP50–95 change versus B1 at 640. Physical batch also changed.
+[Reviewed results](results/e2_training_resolution.md) · [Training protocol](experiments/e2_training_resolution.md)

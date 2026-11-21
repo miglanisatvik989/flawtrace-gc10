@@ -40,8 +40,8 @@ epochs, batches, losses, GPU memory, and validation metrics. Inspect
 
 Run files are under `experiments/<run-id>/`. They include `run.json`,
 `environment.json`, `effective_config.json`, `terminal.log`, configuration
-copies, the fork's `args.yaml` and `results.csv`, checkpoints, and plots. The launcher redirects Python output to `_main_train.log` and truncates
-that file at the next launch. The per-run `terminal.log` remains available.
+copies, the fork's `args.yaml` and `results.csv`, checkpoints, and plots. The launcher appends Python output to `_main_train.log` by default. Supply
+`TRAIN_LOG` for a separate launcher log. The per-run `terminal.log` remains available.
 
 ## Recover an interrupted run
 

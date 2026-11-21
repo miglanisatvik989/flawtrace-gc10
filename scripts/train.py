@@ -23,6 +23,7 @@ import torch
 import yaml
 
 from evaluate import ROOT, UPSTREAM, UPSTREAM_COMMIT, Tee, sha256, write_json
+from record_source import training_files
 
 
 TRAIN_KEYS = {
@@ -187,28 +188,47 @@ def train(config, options, run, model_yaml, data_yaml, device):
     write_json(record, {"status": "completed"})
 
 
+def verify_source(config, data_yaml, model_yaml):
+    deployment = ROOT / ".cache/source.json"
+    capture = f"Run python scripts/record_source.py --config {config} before submission."
+    if not deployment.is_file():
+        raise ValueError(f"Source record is missing. {capture}")
+    source = json.loads(deployment.read_text())
+    if source["upstream_commit"] != UPSTREAM_COMMIT:
+        raise ValueError(f"Source record has a different AGE-YOLO revision. {capture}")
+    mismatches = []
+    for name in training_files(config, data_yaml, model_yaml):
+        path = ROOT / name
+        recorded = source["sha256"].get(name)
+        actual = sha256(path) if path.is_file() else None
+        if not recorded or actual != recorded:
+            mismatches.append(f"{name}: recorded {recorded or 'missing'}, current {actual or 'missing'}")
+    if mismatches:
+        details = "\n".join(mismatches)
+        raise ValueError(f"Training deployment changed. {capture}\n{details}")
+    return source
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, default=ROOT / "configs/hpc.yaml")
     parser.add_argument("--preflight", action="store_true", help="Resolve settings without using a GPU or creating a run.")
+    parser.add_argument("--check-source", action="store_true", help="Verify recorded training inputs during preflight.")
     args = parser.parse_args()
+    if args.check_source and not args.preflight:
+        parser.error("--check-source requires --preflight.")
     config, options = load_config(args.config)
     data_yaml = (ROOT / config["DATA_CONFIG"]).resolve(strict=True)
     model_yaml = (ROOT / config["MODEL_CONFIG"]).resolve(strict=True)
     if model_yaml.suffix not in {".yaml", ".yml"}:
         parser.error("Random initialization requires a model YAML.")
     run = (ROOT / config["OUTPUT_DIR"]).resolve() / config["RUN_ID"]
+    if args.check_source or not args.preflight:
+        source = verify_source(args.config, data_yaml, model_yaml)
     if args.preflight:
-        print(json.dumps({**config, "data": str(data_yaml), "model": str(model_yaml), "run": str(run)}, indent=2))
+        print(json.dumps({**config, "data": str(data_yaml), "model": str(model_yaml), "run": str(run),
+                          "source_verified": args.check_source}, indent=2))
         return
-
-    deployment = ROOT / ".cache/source.json"
-    if not deployment.is_file():
-        parser.error("Run python scripts/record_source.py on the deployment host before training.")
-    source = json.loads(deployment.read_text())
-    if any(not (ROOT / name).is_file() or sha256(ROOT / name) != digest
-           for name, digest in source["sha256"].items()):
-        raise ValueError("Deployment changed. Run scripts/record_source.py before submission.")
     device = initialize_cuda(config["DEVICE"])
     if config["RESUME"]:
         if run.is_symlink() or not (run / "hpc.yaml").is_file():

@@ -1,0 +1,9 @@
+RUN_ID: e2-resolution-eval-01
+DEVICE: "cuda:0"
+CHECKPOINT: experiments/e2-train-960-b16-02/weights/best.pt
+B1_RUN: experiments/e1-resolution-01
+SEED: 42
+BOOTSTRAP_REPETITIONS: 5000
+LATENCY_IMAGES: 40
+WARMUP_BATCHES: 5
+FP_PER_IMAGE_BUDGETS: [0.10, 0.25, 0.50, 1.00]

@@ -17,7 +17,7 @@ conda activate flawtrace-gc10
 module load cuda/12.8
 
 # Run training
-python3 -u ./scripts/train.py --config configs/hpc.yaml > _main_train.log 2>&1
+python3 -u ./scripts/train.py --config "${TRAIN_CONFIG:-configs/hpc.yaml}" >> "${TRAIN_LOG:-_main_train.log}" 2>&1
 
 # Submit:
 # qsub submit.sh

@@ -1,0 +1,30 @@
+DEVICE: "cuda:4"
+RUN_ID: "e2-train-960-b16-02"
+RESUME: false
+SEED: 42
+
+DATA_CONFIG: "configs/gc10_augmented.yaml"
+MODEL_CONFIG: "upstream/AGE-YOLO/ultralytics/cfg/models/age_yolo.yaml"
+OUTPUT_DIR: "experiments"
+
+BATCH_SIZE: 32
+EPOCHS: 300
+IMAGE_SIZE: 960
+PATIENCE: 50
+PRETRAINED: false
+AMP: true
+DETERMINISTIC: true
+NUM_WORKERS: 8
+
+OPTIMIZER: "SGD"
+LR: 0.01
+MOMENTUM: 0.937
+WEIGHT_DECAY: 0.0005
+
+MOSAIC: 1.0
+FLIP_LR: 0.0
+FLIP_UD: 0.0
+SCALE: 0.1
+HSV_H: 0.01
+HSV_S: 0.2
+HSV_V: 0.2

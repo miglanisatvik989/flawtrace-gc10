@@ -118,8 +118,10 @@ errors in the narrowest short-side quartile.
 E1 is complete and independently reviewed. At 960, validation mAP50–95
 fell from 34.12% to 17.24%. E1A is also complete and scientifically
 reviewed. Both fusion rules reduced AP and trailed the 640 control at every
-evaluated false-positive budget. E2 now tests matched-resolution training.
-[Reviewed E1 report](docs/results/e1_resolution.md) · [Reviewed E1A report](docs/results/e1a_fusion.md)
+evaluated false-positive budget. E2 matched-resolution training restored E1’s 960 degradation but yielded
+only a +0.10-point mAP50–95 gain versus B1 at 640. E3 fixed tiled
+inference is the next approved diagnostic.
+[Reviewed E1 report](docs/results/e1_resolution.md) · [Reviewed E1A report](docs/results/e1a_fusion.md) · [Reviewed E2 report](docs/results/e2_training_resolution.md)
 
 ## HPC execution and recovery
 

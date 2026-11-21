@@ -81,10 +81,10 @@ def frozen_inputs():
     return prior, truth
 
 
-def export_validation(run, conf, size, truth):
+def export_validation(run, conf, size, truth, checkpoint=CHECKPOINT):
     destination = run / str(size)
     destination.mkdir()
-    model, torch, ultralytics, device = load_model(CHECKPOINT, conf["DEVICE"])
+    model, torch, ultralytics, device = load_model(checkpoint, conf["DEVICE"])
     from ultralytics.models.yolo.detect import DetectionValidator
 
     predictions, ap_records, shapes = {}, {}, set()
@@ -113,8 +113,8 @@ def export_validation(run, conf, size, truth):
                 ap_records[image] = (tp.cpu().numpy(), rows[:, 4], rows[:, 5], target_classes.cpu().numpy())
             super().update_metrics(preds, batch)
 
-    print(f"E1 native validation at {size}px", flush=True)
-    evaluate(model, torch, ultralytics, device, CHECKPOINT, sha256(CHECKPOINT),
+    print(f"Native validation at {size}px for {checkpoint}", flush=True)
+    evaluate(model, torch, ultralytics, device, checkpoint, sha256(checkpoint),
              "val", destination, validator=ExportValidator, image_size=size)
     if predictions.keys() != truth.keys():
         raise ValueError("Native prediction images differ from the validation manifest.")
@@ -273,8 +273,8 @@ def bootstrap(run, conf, truth, objects, records, metrics):
     return rows
 
 
-def measure_timing(run, conf):
-    model, torch, _, device = load_model(CHECKPOINT, conf["DEVICE"])
+def measure_timing(run, conf, checkpoint=CHECKPOINT):
+    model, torch, _, device = load_model(checkpoint, conf["DEVICE"])
     from ultralytics.models.yolo.detect import DetectionValidator
     from ultralytics.nn.autobackend import AutoBackend
 
