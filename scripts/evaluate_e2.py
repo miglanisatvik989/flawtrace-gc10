@@ -78,13 +78,13 @@ def coverage(obj, predictions):
     return float(ious[index]), overlap / true_area, pred_area / true_area, ratio(overlap, pred_area)
 
 
-def diagnostics(run, conf, truth, predictions, records, expected):
+def diagnostics(run, conf, truth, predictions, records, expected, conditions=CONDITIONS):
     from ultralytics.utils.metrics import ap_per_class
     from evaluate_resolution import score_curve
 
     metrics, classes, errors, sizes, curves, budgets = {}, [], [], [], {}, []
     objects = {obj["object_id"]: dict(obj) for rows in truth.values() for obj in rows}
-    for label, (train_size, inference) in CONDITIONS.items():
+    for label, (train_size, inference) in conditions.items():
         _, _, p, r, _, ap, class_ids, *_ = ap_per_class(*combined(records[label]), plot=False)
         values = {"mAP50": ap[:, 0].mean(), "mAP50-95": ap.mean(), "native_precision": p.mean(),
                   "native_recall": r.mean()}
@@ -136,11 +136,11 @@ def diagnostics(run, conf, truth, predictions, records, expected):
                             "budget_within_sweep": budget <= curves[label][-1]["fp_per_image"]})
         write_json(run / "predictions" / f"{label}-fixed-point.json", detections)
     for obj in objects.values():
-        for c in CONDITIONS:
+        for c in conditions:
             a, b = obj["A_category"] == "correct", obj[f"{c}_category"] == "correct"
             obj[f"{c}_vs_A"] = {(True, True): "retained", (True, False): "lost",
                                 (False, True): "recovered", (False, False): "both_missed"}[a, b]
-        obj["missed_all"] = all(obj[f"{c}_category"] != "correct" for c in CONDITIONS)
+        obj["missed_all"] = all(obj[f"{c}_category"] != "correct" for c in conditions)
     for table, identity, keys in ((classes, ("class",), ("AP50", "AP50-95", "fixed_recall")),
                                   (sizes, ("measure", "group"), ("recall", "localization"))):
         base = {tuple(r[k] for k in identity): r for r in table if r["condition"] == "A"}
@@ -156,36 +156,36 @@ def diagnostics(run, conf, truth, predictions, records, expected):
     return metrics, classes, errors, sizes, curves, list(objects.values())
 
 
-def paired_bootstrap(run, conf, truth, objects, records, metrics):
+def paired_bootstrap(run, conf, truth, objects, records, metrics, conditions=CONDITIONS, comparisons=COMPARISONS):
     keys = ("mAP50", "mAP50-95", "fixed_recall", "q1_recall")
     indices = {image: i for i, image in enumerate(truth)}
-    counts = np.zeros((len(truth), 2 + 2 * len(CONDITIONS)), dtype=int)
+    counts = np.zeros((len(truth), 2 + 2 * len(conditions)), dtype=int)
     for obj in objects:
         row = counts[indices[obj["image"]]]
         q1 = obj["short_side_640_group"] == "Q1"
         row[:2] += [1, q1]
-        for i, c in enumerate(CONDITIONS):
+        for i, c in enumerate(conditions):
             hit = obj[f"{c}_category"] == "correct"
             row[2 + 2*i:4 + 2*i] += [hit, q1 and hit]
     orders = {c: [(indices[image], row) for image, row in table.items()] for c, table in records.items()}
     rng = np.random.default_rng(conf["SEED"])
     reps = conf["BOOTSTRAP_REPETITIONS"]
-    changes = {f"{c}-{base}": np.empty((reps, 4)) for c, base in COMPARISONS}
+    changes = {f"{c}-{base}": np.empty((reps, 4)) for c, base in comparisons}
     for i in range(reps):
         multiplicity = np.bincount(rng.integers(len(truth), size=len(truth)), minlength=len(truth))
         total, q1_total, *hits = multiplicity @ counts
         values = {}
-        for index, c in enumerate(CONDITIONS):
+        for index, c in enumerate(conditions):
             selected = [record for number, record in orders[c] for _ in range(multiplicity[number])]
             ap = native_ap([np.concatenate(col) for col in zip(*selected)])
             values[c] = np.array([*ap, hits[2*index] / total,
                                   hits[2*index+1] / q1_total if q1_total else np.nan])
-        for c, base in COMPARISONS:
+        for c, base in comparisons:
             changes[f"{c}-{base}"][i] = values[c] - values[base]
         if (i + 1) % 500 == 0:
             print(f"Paired bootstrap {i + 1}/{reps}", flush=True)
     rows = []
-    for c, base in COMPARISONS:
+    for c, base in comparisons:
         comparison = f"{c}-{base}"
         array = changes[comparison]
         np.save(run / "predictions" / f"{comparison}-bootstrap.npy", array)
@@ -198,7 +198,8 @@ def paired_bootstrap(run, conf, truth, objects, records, metrics):
     return rows
 
 
-def figures(run, conf, metrics, classes, errors, sizes, curves, objects, predictions):
+def figures(run, conf, metrics, classes, errors, sizes, curves, objects, predictions,
+            conditions=CONDITIONS, example_conditions=("C", "D")):
     import matplotlib
 
     matplotlib.use("Agg")
@@ -217,7 +218,7 @@ def figures(run, conf, metrics, classes, errors, sizes, curves, objects, predict
     def bars(name, labels, values, ylabel, limit=None):
         fig, ax = plt.subplots(figsize=(max(6, len(labels)), 4))
         x = np.arange(len(labels))
-        for i, c in enumerate(CONDITIONS):
+        for i, c in enumerate(conditions):
             ax.bar(x + .19*(i-1.5), [np.nan if v is None else v for v in values[c]], .19, color=colors[i], label=c)
         ax.set_xticks(x, [label.replace("_", " ") for label in labels], rotation=28, ha="right")
         ax.set_ylabel(ylabel)
@@ -227,24 +228,24 @@ def figures(run, conf, metrics, classes, errors, sizes, curves, objects, predict
         save(fig, run / "plots" / name)
 
     keys = ("mAP50", "mAP50-95", "fixed_precision", "fixed_recall")
-    bars("accuracy", keys, {c: [metrics[c][key] for key in keys] for c in CONDITIONS}, "Fraction", 1)
+    bars("accuracy", keys, {c: [metrics[c][key] for key in keys] for c in conditions}, "Fraction", 1)
     labels = [row["class"] for row in classes if row["condition"] == "A"]
     for key in ("AP50", "AP50-95"):
-        bars(f"class_{key}", labels, {c: [r[key] for r in classes if r["condition"] == c] for c in CONDITIONS}, key, 1)
+        bars(f"class_{key}", labels, {c: [r[key] for r in classes if r["condition"] == c] for c in conditions}, key, 1)
     for field in GEOMETRY:
         bars(f"recall_{field}", ("Q1", "Q2", "Q3", "Q4"),
-             {c: [r["recall"] for r in sizes if r["condition"] == c and r["measure"] == field] for c in CONDITIONS},
+             {c: [r["recall"] for r in sizes if r["condition"] == c and r["measure"] == field] for c in conditions},
              "Fixed recall", 1)
-    bars("errors", CATEGORIES, {c: [r["count"] for r in errors if r["condition"] == c] for c in CONDITIONS}, "Assignments")
+    bars("errors", CATEGORIES, {c: [r["count"] for r in errors if r["condition"] == c] for c in conditions}, "Assignments")
     fig, ax = plt.subplots(figsize=(6, 4))
-    for c, color in zip(CONDITIONS, colors):
+    for c, color in zip(conditions, colors):
         ax.step([r["fp_per_image"] for r in curves[c]], [r["recall"] for r in curves[c]], where="post", color=color, label=c)
     ax.set(xlabel="False positives per image", ylabel="Recall", xlim=(0, max(conf["FP_PER_IMAGE_BUDGETS"])), ylim=(0, 1))
     ax.legend(frameon=False)
     save(fig, run / "plots" / "recall_fp")
 
     rng = random.Random(conf["SEED"])
-    for c in ("C", "D"):
+    for c in example_conditions:
         for outcome in ("recovered", "lost"):
             group = [obj for obj in objects if obj[f"{c}_vs_A"] == outcome]
             for index, obj in enumerate(rng.sample(group, min(3, len(group))), 1):

@@ -126,3 +126,10 @@ reviewed, with mixed results. E2 at 960 restored the severe E1 degradation,
 improved precision and strict-FP-budget recall, and yielded a +0.10-point
 mAP50–95 change versus B1 at 640. Physical batch also changed.
 [Reviewed results](results/e2_training_resolution.md) · [Training protocol](experiments/e2_training_resolution.md)
+
+## E3 — Fixed two-crop tiled inference
+
+Completed and scientifically reviewed. Negative result. T yielded
+15.92% mAP50–95 versus 34.12% for B1 full-image 640. Recall was lower
+at every evaluated FP/image budget. E4 and E5 are deferred.
+[Reviewed results](results/e3_tiled_inference.md) · [Protocol](research_plan.md#e3-protocol)

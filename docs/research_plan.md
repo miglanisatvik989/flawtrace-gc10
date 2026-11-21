@@ -24,9 +24,9 @@ all preprocessing, inference and postprocessing in end-to-end latency.
 | E1 | Higher-resolution inference | Completed and independently reviewed |
 | E1A | Offline cross-resolution prediction fusion | Completed and scientifically reviewed. Negative result. |
 | E2 | Matched-resolution training at 960 | Completed and scientifically reviewed. Mixed results. |
-| E3 | Fixed two-crop tiled inference | Next approved bounded diagnostic |
-| E4 | Prediction fusion | Conditional on E3 |
-| E5 | Selective refinement | Conditional on E4 |
+| E3 | Fixed two-crop tiled inference | Completed and scientifically reviewed. Negative result. |
+| E4 | Full-image and tiled prediction fusion | Deferred after E1A and E3 |
+| E5 | Selective refinement | Deferred with E4 |
 | V1 | Experimental verification | Conditional on identifying a method worth verifying |
 | V2 | Final held-out test evaluation | Conditional on V1, frozen choices, and explicit approval |
 
@@ -44,6 +44,16 @@ some defects but lowered AP and trailed the 640 control under every
 shared false-positive budget. E2 now tests training at the target
 resolution before introducing the additional variables of tiling.
 [Reviewed E1A report](results/e1a_fusion.md)
+
+## Decision after E3
+
+E4 was planned as full-image and tiled prediction fusion, conditional on
+E3. E5 was planned as selective refinement, conditional on E4. E1A's
+fusion rules reduced AP and failed to improve recall under shared
+false-positive budgets. E3 improved neither AP nor recall under those
+budgets and increased inference cost. E4 and E5 are now deferred.
+The next research direction awaits scientific review and maintainer
+approval. [Reviewed E3 results](results/e3_tiled_inference.md)
 
 ## D1 protocol
 
@@ -179,3 +189,62 @@ tail -F experiments/e1-resolution-01/terminal.log
 PBS startup messages are in `flawtrace-e1.o<job-number>`. Review the
 parity flag, paired intervals, class support and accuracy–latency tradeoff
 alongside the reviewed E1A results and revised roadmap.
+
+## E3 protocol
+
+E3 asks whether overlapping local crops recover defects missed by B1
+full-image inference while holding the network's configured size at 640.
+Local crops can improve available spatial detail and can also remove
+context or truncate objects at internal boundaries. E3 is complete and
+scientifically reviewed. [Reviewed E3 results](results/e3_tiled_inference.md)
+
+Each original 2048 × 1000 validation image provides two crops. Left is
+x [0, 1365) and right is x [683, 2048), both spanning y [0, 1000).
+The 682-pixel overlap leaves every original pixel covered. Initial
+resize maps 1365 × 1000 to 640 × 469, then the pinned rectangular
+batching rule pads to 672 × 512 at stride 32. At 640 the crop scale in x
+is 640/1365 versus 640/2048 on the full image, approximately 1.50×.
+Each prediction is unpadded, divided by the actual per-axis gains from
+the rounded resize, clipped to crop bounds and offset into the original
+image. Native class-aware NMS runs within each crop. The second
+class-aware NMS operates on original coordinates at IoU 0.7 and keeps
+at most 300 detections per original. Scores and crop IDs stay attached.
+Crop selection and suppression use no labels or full-image predictions.
+
+AP uses the pinned matcher with one set of original D1 ground-truth
+objects per image. Compare T with archived A, B and D, with T–A primary.
+The paired bootstrap draws original images 5,000 times with seed 42,
+and the same draw feeds all four conditions. The intervals describe
+image-level uncertainty, with training-seed variation unmeasured.
+The A–T oracle is retrospective and excluded from method rankings.
+
+An object is contained when a crop covers its full box. Partial in both
+means neither crop contains it. Boundary crossing requires a strict
+crossing of x=683 or x=1365. Overlap intersection requires positive
+area in the shared strip, and within overlap requires full containment
+there. These groups overlap. Maximum visibility is the largest
+crop intersection divided by original box area. Tables give all-object
+and Q4 area strata with object and image counts, recall and localization
+errors. Duplicate counts use the D1 fixed point before and after merge.
+Clipping and overlap diagnoses use annotations only after inference.
+
+Measure full-image 640 and tiled 640 on the same GPU with alternating
+A, T, T, A passes. End-to-end time includes decode, crop generation,
+resize/pad, transfer, model calls, remap and merge. The batch-1 workload
+runs both crops serially for each sampled original. The batch-16
+workload processes at most 16 views per forward pass. Throughput is
+reported separately for originals and crops. Timing excludes digest
+verification, metrics, plotting and artifact writes.
+
+For an approved reproduction, choose a fresh run ID and set the authorized
+DEVICE in `configs/tiling.yaml` before recording source.
+
+```bash
+source /home/soft/anaconda3/etc/profile.d/conda.sh
+conda activate flawtrace-gc10
+python scripts/evaluate_tiling.py --preflight
+python scripts/record_source.py
+job=$(qsub submit_tiling.sh)
+qstat -f "$job"
+tail -F "flawtrace-e3.o${job%%.*}"  # Per-run terminal.log is under experiments/<new-run-id>.
+```
