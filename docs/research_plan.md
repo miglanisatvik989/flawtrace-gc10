@@ -22,10 +22,11 @@ all preprocessing, inference and postprocessing in end-to-end latency.
 | B1 | Independent AGE-YOLO baseline | Accepted primary baseline |
 | D1 | Baseline error analysis | Completed and scientifically reviewed |
 | E1 | Higher-resolution inference | Completed and independently reviewed |
-| E1A | Offline cross-resolution prediction fusion | Compare frozen 640 and 960 predictions |
-| E2 | Tiled inference | Conditional on E1A review and remaining errors |
-| E3 | Full-image and tiled prediction fusion | Conditional on complementary detections in E2 |
-| E4 | Selective tiled inference | Conditional on evidence that fusion helps and resource costs merit selection |
+| E1A | Offline cross-resolution prediction fusion | Completed and scientifically reviewed. Negative result. |
+| E2 | Matched-resolution training at 960 | Test whether training at 960 mitigates E1 localization degradation |
+| E3 | Tiled inference | Conditional on E2 |
+| E4 | Prediction fusion | Conditional on E3 |
+| E5 | Selective refinement | Conditional on E4 |
 | V1 | Experimental verification | Conditional on identifying a method worth verifying |
 | V2 | Final held-out test evaluation | Conditional on V1, frozen choices, and explicit approval |
 
@@ -33,6 +34,16 @@ Use validation alone to develop, select, and tune methods. The recorded
 B0 test result is historical. Do not use held-out results to select a
 method, confidence threshold, tile policy, or checkpoint.
 [Baseline registry](experiments.md)
+
+## Roadmap revision after E1A
+
+The previous sequence moved directly from E1A to tiled inference (E2),
+then prediction fusion (E3) and selective tiled inference (E4). E1 found
+poor localization when the 640-trained model ran at 960. E1A recovered
+some defects but lowered AP and trailed the 640 control under every
+shared false-positive budget. E2 now tests training at the target
+resolution before introducing the additional variables of tiling.
+[Reviewed E1A report](results/e1a_fusion.md)
 
 ## D1 protocol
 
@@ -167,4 +178,4 @@ tail -F experiments/e1-resolution-01/terminal.log
 
 PBS startup messages are in `flawtrace-e1.o<job-number>`. Review the
 parity flag, paired intervals, class support and accuracy–latency tradeoff
-before deciding whether to proceed with E2.
+alongside the reviewed E1A results and revised roadmap.

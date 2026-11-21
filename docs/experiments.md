@@ -99,3 +99,22 @@ Completed and independently reviewed. Run `e1-resolution-01` reproduced
 the D1 control exactly. At 960, mAP50–95 fell from 34.12% to 17.24%.
 The archived run is under `artifacts/E1/`.
 [Results](results/e1_resolution.md) · [Protocol](research_plan.md#e1-protocol)
+
+## E1A — Offline cross-resolution fusion
+
+Completed on CPU and scientifically reviewed. Run `e1a-fusion-01` used
+frozen E1 validation predictions and D1 objects. F0 and F1 reproduced
+both native E1 AP values. F2 pooled both views by confidence, applied
+class-aware NMS with suppression at IoU > 0.7 and kept up to 300 detections
+per image. Ties keep input order, with the 640 view first. F3 retained
+all 640 predictions, then considered the 960 predictions by decreasing
+confidence, blocking a same-class overlap at IoU ≥ 0.5 with any retained
+prediction and stopping at 300. Both rules retained the original scores
+and used no annotation information when selecting predictions.
+
+The finished run and report are at `experiments/e1a-fusion-01/`. The
+oracle is retrospective and excluded from the deployable methods.
+Measured CPU fusion overhead and estimated two-view latency are
+reported separately. Both fusion rules reduced AP, and F0 had the highest
+recall at every evaluated FP/image budget. The negative result redirects
+E2 to matched-resolution training. [Reviewed E1A report](results/e1a_fusion.md)

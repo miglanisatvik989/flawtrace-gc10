@@ -116,8 +116,10 @@ errors in the narrowest short-side quartile.
 [Reviewed D1 report](docs/results/d1_error_analysis.md) · [Research plan](docs/research_plan.md)
 
 E1 is complete and independently reviewed. At 960, validation mAP50–95
-fell from 34.12% to 17.24%. E1A evaluates whether the two views can be
-combined using saved predictions. [Reviewed E1 report](docs/results/e1_resolution.md)
+fell from 34.12% to 17.24%. E1A is also complete and scientifically
+reviewed. Both fusion rules reduced AP and trailed the 640 control at every
+evaluated false-positive budget. E2 now tests matched-resolution training.
+[Reviewed E1 report](docs/results/e1_resolution.md) · [Reviewed E1A report](docs/results/e1a_fusion.md)
 
 ## HPC execution and recovery
 

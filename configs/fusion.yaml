@@ -1,0 +1,4 @@
+RUN_ID: e1a-fusion-01
+INPUT_RUN: experiments/e1-resolution-01
+BOOTSTRAP_REPETITIONS: 5000
+SEED: 42
