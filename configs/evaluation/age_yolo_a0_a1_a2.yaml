@@ -1,0 +1,26 @@
+RUN_ID: a2-architecture-eval-01
+DEVICE: "cuda:6"
+A0_CHECKPOINT: experiments/a0-age-yolo-640-b32-02/weights/best.pt
+A1_CHECKPOINT: experiments/a1-age-yolo-p2-640-b32-01/weights/best.pt
+A2_CHECKPOINT: experiments/a2-age-yolo-p2-context-640-b32-01/weights/best.pt
+
+SPLIT: val
+IMAGE_SIZE: 640
+BATCH_SIZE: 16
+NUM_WORKERS: 8
+FP16: false
+RECT: true
+NMS_CONFIDENCE_FLOOR: 0.001
+NMS_IOU: 0.7
+MAX_DETECTIONS: 300
+AGNOSTIC_NMS: false
+TEST_TIME_AUGMENTATION: false
+
+CONFIDENCE: 0.25
+MATCH_IOU: 0.50
+BACKGROUND_IOU: 0.10
+FP_PER_IMAGE_BUDGETS: [0.10, 0.25, 0.50, 1.00]
+BOOTSTRAP_REPETITIONS: 5000
+SEED: 42
+LATENCY_IMAGES: 40
+WARMUP_BATCHES: 5

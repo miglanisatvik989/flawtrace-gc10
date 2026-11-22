@@ -136,8 +136,10 @@ A1 is complete and scientifically reviewed. P2 produced 11 of A1’s 13
 correct detections in the ≤16 px group, and rolled-pit AP improved on
 four validation objects. The overall AP difference was inconclusive.
 A1 had lower fixed recall and lower recall at all four evaluated
-false-positive budgets. A2 is planned as a context-aware SIFHead change
-and awaits scientific review. [A1 results](docs/results/a1_p2_detection.md) · [A0/A1 protocol](docs/experiments/a1_p2_detection.md)
+false-positive budgets. A2’s contextual regression ablation is
+complete and independently reviewed. It improved inclusion AP50 but
+did not improve overall detection or reduce localization errors.
+[Reviewed A2 results](docs/results/a2_context_head.md) [A1 results](docs/results/a1_p2_detection.md) · [A0/A1 protocol](docs/experiments/a1_p2_detection.md)
 
 ## HPC execution and recovery
 

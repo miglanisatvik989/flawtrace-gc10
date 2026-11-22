@@ -155,5 +155,13 @@ finding. [Reviewed results and archive checksums](results/a1_p2_detection.md)
 
 B1 remains the historical baseline, A0 the matched control, and A1 the
 development architecture. Future candidates will compare with both A0
-and A1. A2, a planned context-aware SIFHead modification starting from
-A1, awaits scientific review before design and implementation.
+and A1.
+
+## A2 — Regression context in SIFHead
+
+**Completed and independently reviewed. Negative overall result.**
+A2 reached 65.74% mAP50, 34.36% mAP50–95 and 62.90% fixed recall on the
+matched validation split. It improved inclusion AP50 versus A1 but
+increased localization errors and trailed A0 at all four FP budgets.
+A1 remains the provisional development architecture and A0 the matched
+performance control. [Reviewed results and archives](results/a2_context_head.md)

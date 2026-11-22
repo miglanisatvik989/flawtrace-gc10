@@ -30,7 +30,7 @@ all preprocessing, inference and postprocessing in end-to-end latency.
 | E5 | Selective refinement | Deferred with E4 |
 | A0 | Original AGE-YOLO matched architecture control | Completed training and standalone validation. |
 | A1 | Stride-4 P2 AGE-YOLO extension | Completed and scientifically reviewed. Mixed result. Current development architecture. |
-| A2 | Context-aware SIFHead starting from A1 | Planned. Design and implementation await scientific review. |
+| A2 | Regression-specific SIFHead context starting from A1 | Completed and independently reviewed. Negative overall result. |
 | V1 | Experimental verification | Conditional on identifying a method worth verifying |
 | V2 | Final held-out test evaluation | Conditional on V1, frozen choices, and explicit approval |
 
@@ -73,9 +73,10 @@ rolled-pit performance on four objects across two images.
 
 Retain A1 as the development architecture for its complementary
 detections and descriptive rolled-pit result. Future candidates must
-compare with both A0 and A1. The planned A2 context-aware SIFHead
-modification starts from A1. Its design and implementation remain
-pending scientific review.
+compare with both A0 and A1. A2 tested regression-only context starting
+from A1. It improved inclusion AP50 but did not improve overall accuracy
+or localization counts. The comparison used one seed.
+[Reviewed A2 results](results/a2_context_head.md)
 
 ## D1 protocol
 

@@ -128,7 +128,9 @@ def train(config, options, run, model_yaml, data_yaml, device):
     from ultralytics import YOLO, __version__
     from ultralytics.engine import trainer
     from matplotlib import get_data_path
+    from context_sifhead import register_context_sifhead
 
+    register_context_sifhead()
     shutil.copyfile(Path(get_data_path()) / "fonts/ttf/DejaVuSans.ttf", settings / "Arial.ttf")
     snapshot = run / "hpc.yaml"
     record = run / "run.json"

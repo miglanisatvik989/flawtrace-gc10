@@ -20,7 +20,8 @@ def training_files(config, data_yaml, model_yaml):
     """Files that must match the source record at training startup."""
     files = (config, data_yaml, model_yaml, ROOT / "upstream/AGE-YOLO/ultralytics/cfg/default.yaml",
              ROOT / "data/manifests/gc10-provenance.json", ROOT / "submit.sh",
-             *(ROOT / "scripts" / name for name in ("train.py", "evaluate.py", "check_env.py", "record_source.py")))
+             *(ROOT / "scripts" / name for name in (
+                 "train.py", "evaluate.py", "check_env.py", "record_source.py", "context_sifhead.py")))
     return source_paths(files)
 
 
@@ -30,19 +31,24 @@ def source_paths(files):
 
 
 def architecture_eval_files(config, conf):
-    models = (
-        "upstream/AGE-YOLO/ultralytics/cfg/models/age_yolo.yaml",
-        "configs/models/age_yolo_p2.yaml",
-    )
+    models = {
+        "A0_CHECKPOINT": "upstream/AGE-YOLO/ultralytics/cfg/models/age_yolo.yaml",
+        "A1_CHECKPOINT": "configs/models/age_yolo_p2.yaml",
+    }
     scripts = ("evaluate_architecture", "evaluate_resolution", "evaluate", "analyze_errors",
                "check_env", "record_source", "train")
+    launcher = "submit_architecture_eval.sh"
+    if "A2_CHECKPOINT" in conf:
+        models["A2_CHECKPOINT"] = "configs/models/age_yolo_p2_context.yaml"
+        scripts += ("context_sifhead", "evaluate_e2", "evaluate_fusion")
+        launcher = "submit_a2_eval.sh"
     upstream = ROOT / "upstream/AGE-YOLO/ultralytics"
     return source_paths([
-        config, *(ROOT / path for path in models),
+        config, *(ROOT / path for path in models.values()),
         *(ROOT / Path(conf[key]).parents[1] / Path(model).name
-          for key, model in zip(("A0_CHECKPOINT", "A1_CHECKPOINT"), models)),
+          for key, model in models.items()),
         *(ROOT / "scripts" / f"{script}.py" for script in scripts),
-        *(ROOT / path for path in ("submit_architecture_eval.sh", "configs/gc10.yaml",
+        *(ROOT / path for path in (launcher, "configs/gc10.yaml",
                                   "data/manifests/gc10-val.csv", "data/manifests/gc10-train.csv",
                                   "experiments/d1-baseline-01/summary.json",
                                   "experiments/d1-baseline-01/per_object.csv")),

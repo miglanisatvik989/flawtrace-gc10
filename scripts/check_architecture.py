@@ -1,4 +1,4 @@
-"""Verify the A0 and A1 architectures with synthetic tensors only."""
+"""Verify the A0, A1 and A2 architectures with synthetic tensors only."""
 
 import argparse
 import json
@@ -7,16 +7,48 @@ import os
 import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from types import SimpleNamespace
 
 import torch
 
 from evaluate import ROOT, UPSTREAM
-from train import check_amp, initialize_cuda
+from train import backup_checkpoint, check_amp, initialize_cuda
 
 MODELS = {
     "A0": (UPSTREAM / "ultralytics/cfg/models/age_yolo.yaml", (8, 16, 32), (64, 128, 256)),
     "A1": (ROOT / "configs/models/age_yolo_p2.yaml", (4, 8, 16, 32), (16, 64, 128, 256)),
+    "A2": (ROOT / "configs/models/age_yolo_p2_context.yaml", (4, 8, 16, 32), (16, 64, 128, 256)),
 }
+
+
+def check_recovery(model, optimizer, device):
+    from ultralytics import YOLO
+    from ultralytics.engine.trainer import BaseTrainer
+    from ultralytics.models.yolo.detect import DetectionTrainer
+    from ultralytics.nn.autobackend import AutoBackend
+
+    with TemporaryDirectory(prefix="flawtrace-checkpoint-") as temporary:
+        run = Path(temporary)
+        trainer = SimpleNamespace(
+            epoch=0, fitness=0.5, best_fitness=0.5, ema=SimpleNamespace(ema=model, updates=1),
+            optimizer=optimizer, args=model.args, metrics={}, read_results_csv=lambda: {"epoch": [1]},
+            wdir=run, last=run / "last.pt", best=run / "best.pt", save_period=-1,
+        )
+        BaseTrainer.save_model(trainer)
+        backup_checkpoint(trainer)
+        assert trainer.last.read_bytes() == (run / "last.recovery.pt").read_bytes()
+        recovered = YOLO(str(run / "last.recovery.pt"), task="detect")
+        rebuilt = DetectionTrainer.get_model(SimpleNamespace(data={"nc": 10}), cfg=recovered.model.yaml,
+                                             weights=recovered.model, verbose=False).to(device)
+        restored_optimizer = BaseTrainer.build_optimizer(None, rebuilt, name="SGD", lr=.01, momentum=.937, decay=.0005)
+        resume = SimpleNamespace(optimizer=restored_optimizer, resume=True, ema=None, args=model.args, epochs=300)
+        BaseTrainer.resume_training(resume, recovered.ckpt)
+        assert resume.start_epoch == 1 and resume.best_fitness == .5 and restored_optimizer.state
+        assert all(torch.equal(value, rebuilt.state_dict()[key]) for key, value in model.state_dict().items())
+        backend = AutoBackend(weights=YOLO(str(trainer.best)).model, device=device, fp16=False)
+        with torch.inference_mode():
+            decoded, raw = backend(torch.zeros((1, 3, 64, 96), device=device))
+        assert decoded.shape == (1, 14, 510) and len(raw) == 4 and torch.isfinite(decoded).all()
 
 
 def check_model(path, strides, channels, device):
@@ -24,6 +56,7 @@ def check_model(path, strides, channels, device):
     from ultralytics.cfg import get_cfg
     from ultralytics.utils.tal import make_anchors
     from ultralytics.utils.torch_utils import get_flops
+    from context_sifhead import ContextSIFHead, SIFHead
 
     torch.manual_seed(42)
     wrapper = YOLO(str(path), task="detect", verbose=False)
@@ -31,7 +64,9 @@ def check_model(path, strides, channels, device):
     model = wrapper.model.to(device).eval()
     model.args = get_cfg()
     head = model.model[-1]
-    assert type(head).__name__ == "SIFHead" and head.nc == 10 and head.reg_max == 16
+    is_context = isinstance(head, ContextSIFHead)
+    assert type(head) is (ContextSIFHead if path == MODELS["A2"][0] else SIFHead)
+    assert head.nc == 10 and head.reg_max == 16
     assert tuple(model.stride.tolist()) == strides and len(head.conv) == len(head.scale) == head.nl == len(strides)
     assert tuple(block[0].conv.in_channels for block in head.conv) == channels
     assert all(block[0].conv.out_channels == 64 for block in head.conv)
@@ -41,6 +76,16 @@ def check_model(path, strides, channels, device):
                if isinstance(layer, torch.nn.GroupNorm))
     assert torch.allclose(head.cv2.bias, torch.ones_like(head.cv2.bias))
     assert torch.allclose(head.cv3.bias, torch.full_like(head.cv3.bias, math.log(5 / 10 / (640 / 16) ** 2)))
+    if is_context:
+        assert type(head).forward is SIFHead.forward
+        context, predictor = head.cv2
+        assert context.depthwise.conv.dilation == (2, 2) and context.depthwise.conv.groups == 64
+        features = torch.rand((1, 64, 8, 12), device=device)
+        with torch.inference_mode():
+            assert torch.equal(context(features), features)
+            assert torch.equal(head.cv2(features), predictor(features))
+            assert head.cv3(features).shape == (1, 10, 8, 12)
+            assert head.cv2(features).shape == (1, 64, 8, 12)
     layers = {}
     handles = []
     for layer in model.model[:-1]:
@@ -94,6 +139,16 @@ def check_model(path, strides, channels, device):
     if len(strides) == 4:
         assert assigned[0] > 0
         assert model.model[25].conv.weight.grad.abs().sum() > 0
+    if is_context:
+        from ultralytics.engine.trainer import BaseTrainer
+
+        assert context.pointwise.weight.grad.abs().sum() > 0
+        optimizer = BaseTrainer.build_optimizer(None, model, name="SGD", lr=.01, momentum=.937, decay=.0005)
+        optimizer.step()
+        optimizer.zero_grad(set_to_none=True)
+        model(batch)[0].backward()
+        assert all(p.grad is not None and torch.isfinite(p.grad).all() and p.grad.abs().sum() > 0
+                   for p in context.parameters())
     model.zero_grad(set_to_none=True)
     if device.type == "cuda":
         check_amp(model, device)
@@ -102,11 +157,15 @@ def check_model(path, strides, channels, device):
     parameters = sum(p.numel() for p in model.parameters())
     gflops = get_flops(model, imgsz=640)
     assert gflops > 0
+    if is_context:
+        check_recovery(model, optimizer, device)
     model.fuse(verbose=False)
     return {"strides": strides, "head_input_channels": channels, "parameters": parameters,
             "fused_parameters": sum(p.numel() for p in model.parameters()), "gflops_thop": gflops,
             "forwards": forwards, "loss_box_cls_dfl": components.detach().cpu().tolist(),
             "foreground_by_level": assigned,
+            **({"context_parameters": sum(p.numel() for p in context.parameters()),
+                "checkpoint_recovery_passed": True} if is_context else {}),
             "finite_gradients": True, "amp_passed": True if device.type == "cuda" else None}
 
 
@@ -125,7 +184,10 @@ def main():
     with TemporaryDirectory(prefix="flawtrace-architecture-") as settings:
         os.environ.update(YOLO_CONFIG_DIR=settings, YOLO_OFFLINE="true", YOLO_AUTOINSTALL="false")
         import ultralytics
+        from context_sifhead import register_context_sifhead
+
         assert Path(ultralytics.__file__).resolve().is_relative_to(UPSTREAM)
+        register_context_sifhead()
         for name, (path, strides, channels) in MODELS.items():
             print(f"Checking {name} on {device}", flush=True)
             result = check_model(path, strides, channels, device)
