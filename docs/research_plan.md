@@ -31,6 +31,8 @@ all preprocessing, inference and postprocessing in end-to-end latency.
 | A0 | Original AGE-YOLO matched architecture control | Completed training and standalone validation. |
 | A1 | Stride-4 P2 AGE-YOLO extension | Completed and scientifically reviewed. Mixed result. Current development architecture. |
 | A2 | Regression-specific SIFHead context starting from A1 | Completed and independently reviewed. Negative overall result. |
+| S1-Fusion | Same-resolution complementary detector analysis | Completed on CPU and scientifically reviewed. |
+| S1-KD | Teacher-supervised P2 detector | Reserved. Protocol for review. |
 | V1 | Experimental verification | Conditional on identifying a method worth verifying |
 | V2 | Final held-out test evaluation | Conditional on V1, frozen choices, and explicit approval |
 
@@ -77,6 +79,22 @@ compare with both A0 and A1. A2 tested regression-only context starting
 from A1. It improved inclusion AP50 but did not improve overall accuracy
 or localization counts. The comparison used one seed.
 [Reviewed A2 results](results/a2_context_head.md)
+
+## Training-time supervision after A2
+
+A0 and A1 may learn complementary representations of steel defects.
+Transferring useful A0 features to A1 during training could improve
+detection while preserving single-model P2 inference. S1-Fusion checks
+complementarity using archived, same-resolution predictions. At 0.50
+FP/image, WBF improved recall over A1 by 7.54 pp. Its 2.32 pp gain over
+A0 was inconclusive under paired image resampling. A0 remains the
+matched performance control and A1 the development architecture.
+[S1-Fusion results](results/s1_teacher_fusion.md)
+
+S1-KD is reserved for a frozen A0 teacher and A1 student. Its proposed
+auxiliary loss supervises foreground in the shared P3–P5 features.
+The protocol and its gate are recorded separately.
+[S1-KD proposal](experiments/s1_teacher_fusion.md#reserved-protocol-for-s1-kd)
 
 ## D1 protocol
 

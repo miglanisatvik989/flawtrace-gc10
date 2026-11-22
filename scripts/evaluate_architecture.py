@@ -357,9 +357,9 @@ def compare_false_positives(image, fixed, threshold, challenger, baseline):
                      for i, row in enumerate(a0) if i not in counterparts.values()]
 
 
-def paired_objects(run, conf, truth, predictions):
+def paired_objects(run, conf, truth, predictions, *, pairs=None):
     objects, changes = [], []
-    pairs = comparisons(conf)
+    pairs = pairs or comparisons(conf)
     detections = {name: [] for name in predictions}
     curves = {name: [] for name in predictions}
     for image, targets in truth.items():
@@ -447,9 +447,9 @@ def native_metrics(run, name, records):
     return metrics, ap, class_ids
 
 
-def analyze(run, conf, objects, detections, curves, records):
+def analyze(run, conf, objects, detections, curves, records, *, pairs=None):
     names = yaml.safe_load(CONFIG.read_text())["names"]
-    pairs = comparisons(conf)
+    pairs = pairs or comparisons(conf)
     metrics, classes, errors, sizes, small, budgets = {}, [], [], [], [], []
     for name in records:
         metrics[name], ap, class_ids = native_metrics(run, name, records[name])
@@ -500,9 +500,10 @@ def analyze(run, conf, objects, detections, curves, records):
     return metrics, paired_classes, sizes, small, errors, budgets
 
 
-def bootstrap(run, conf, truth, objects, records, metrics):
+def bootstrap(run, conf, truth, objects, records, metrics, *, pairs=None, budget_recall=None):
     images = {image: i for i, image in enumerate(truth)}
-    pairs = comparisons(conf)
+    pairs = pairs or comparisons(conf)
+    keys = (*BOOT_KEYS, "primary_budget_recall") if budget_recall else BOOT_KEYS
     names = list(records)
     counts = np.zeros((len(images), 3, 1 + len(names)), dtype=int)
     for obj in objects:
@@ -514,7 +515,7 @@ def bootstrap(run, conf, truth, objects, records, metrics):
     nine = [i for i in ids if i != rolled]
     rng = np.random.default_rng(conf["SEED"])
     reps = conf["BOOTSTRAP_REPETITIONS"]
-    deltas = {contrast(*pair): np.empty((reps, len(BOOT_KEYS))) for pair in pairs}
+    deltas = {contrast(*pair): np.empty((reps, len(keys))) for pair in pairs}
     for i in range(reps):
         multiplicity = np.bincount(rng.integers(len(images), size=len(images)), minlength=len(images))
         aps = {}
@@ -525,16 +526,18 @@ def bootstrap(run, conf, truth, objects, records, metrics):
             aps[name] = np.r_[mean_ap(ap, classes, ids), mean_ap(ap, classes, nine)]
         total, *hits_by_model = np.einsum("i,ijk->jk", multiplicity, counts).T
         hits_by_model = dict(zip(names, hits_by_model))
+        budget = budget_recall(multiplicity) if budget_recall else None
         for challenger, baseline in pairs:
             change = hits_by_model[challenger] - hits_by_model[baseline]
             recalls = np.divide(change, total, out=np.full(3, np.nan), where=total > 0)
-            deltas[contrast(challenger, baseline)][i] = np.r_[aps[challenger]-aps[baseline], recalls]
+            extra = [budget[challenger] - budget[baseline]] if budget is not None else []
+            deltas[contrast(challenger, baseline)][i] = np.r_[aps[challenger]-aps[baseline], recalls, extra]
         if (i+1) % 500 == 0:
             print(f"Paired bootstrap {i+1}/{reps}", flush=True)
     rows = []
     for challenger, baseline in pairs:
         label = contrast(challenger, baseline)
-        for key, values in zip(BOOT_KEYS, deltas[label].T):
+        for key, values in zip(keys, deltas[label].T):
             valid = values[np.isfinite(values)]
             low, high = np.quantile(valid, [.025, .975]) if len(valid) else (None, None)
             rows.append({"comparison": label, "metric": key, "delta": metrics[challenger][key]-metrics[baseline][key],
@@ -571,7 +574,9 @@ def level_analysis(run, conf, predictions, objects, detections):
     return rows
 
 
-def figures(run, conf, metrics, classes, sizes, small, errors, curves, objects, predictions, changes, timing, provenance):
+def figures(run, conf, metrics, classes, sizes, small, errors, curves, objects, predictions, changes,
+            timing=None, provenance=None, *, pairs=None):
+    pairs = pairs or comparisons(conf)
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -579,7 +584,7 @@ def figures(run, conf, metrics, classes, sizes, small, errors, curves, objects, 
     from PIL import Image
 
     colors = ("#255F85", "#B24A38", "#397754")
-    challenger = comparisons(conf)[0][0]
+    challenger = pairs[0][0]
     plt.rcParams.update({"font.size": 10, "pdf.fonttype": 42, "axes.spines.top": False, "axes.spines.right": False})
 
     def save(fig, filename):
@@ -628,29 +633,33 @@ def figures(run, conf, metrics, classes, sizes, small, errors, curves, objects, 
     ax.legend(frameon=False)
     save(fig, run / "plots/recall_fp")
 
-    fig, ax = plt.subplots(figsize=(6, 4), layout="constrained")
-    for name, color in zip(metrics, colors):
-        x = [row["batch1_median_ms"] for row in timing if row["condition"] == name and row["batch"] == 1]
-        center = np.mean(x)
-        ax.errorbar(center, metrics[name]["mAP50-95"], xerr=[[center-min(x)], [max(x)-center]],
-                    marker="o", color=color, label=name)
-    ax.set(xlabel="Batch-1 median end-to-end latency (ms)", ylabel="mAP50–95")
-    ax.legend(frameon=False)
-    save(fig, run / "plots/accuracy_latency")
+    if timing is not None:
+        fig, ax = plt.subplots(figsize=(6, 4), layout="constrained")
+        for name, color in zip(metrics, colors):
+            x = [row["batch1_median_ms"] for row in timing if row["condition"] == name and row["batch"] == 1]
+            center = np.mean(x)
+            ax.errorbar(center, metrics[name]["mAP50-95"], xerr=[[center-min(x)], [max(x)-center]],
+                        marker="o", color=color, label=name)
+        ax.set(xlabel="Batch-1 median end-to-end latency (ms)", ylabel="mAP50–95")
+        ax.legend(frameon=False)
+        save(fig, run / "plots/accuracy_latency")
 
-    fig, axes = plt.subplots(1, 2, figsize=(7, 3.5), layout="constrained")
-    for ax, key, label, scale in zip(axes, ("parameters", "estimated_gflops"),
-                                      ("Parameters (millions)", "Estimated GFLOPs"), (1e6, 1)):
-        ax.bar(list(metrics), [provenance[name][key]/scale for name in metrics], color=colors[:len(metrics)])
-        ax.set_ylabel(label)
-    save(fig, run / "plots/architecture_cost")
+    if provenance is not None:
+        fig, axes = plt.subplots(1, 2, figsize=(7, 3.5), layout="constrained")
+        for ax, key, label, scale in zip(axes, ("parameters", "estimated_gflops"),
+                                          ("Parameters (millions)", "Estimated GFLOPs"), (1e6, 1)):
+            ax.bar(list(metrics), [provenance[name][key]/scale for name in metrics], color=colors[:len(metrics)])
+            ax.set_ylabel(label)
+        save(fig, run / "plots/architecture_cost")
 
     rng = np.random.default_rng(conf["SEED"])
-    recovered = [o for o in objects if o["outcome"] == "recovered" and o["short_side_640"] <= 16]
+    fusion = pairs[0][0] == "F2"
+    recovered = [o for o in objects if o["outcome"] == "recovered" and (fusion or o["short_side_640"] <= 16)]
+    recovered_label = "recovered" if fusion else "small-recovered"
     lost = [o for o in objects if o["outcome"] == "lost"]
-    added = [p for p in changes if p["change"] == "added" and p["comparison"] == contrast(*comparisons(conf)[0])]
+    added = [p for p in changes if p["change"] == "added" and p["comparison"] == contrast(*pairs[0])]
     rolled = [o for o in objects if o["class"] == "rolled_pit"]
-    for label, candidates in (("small-recovered", recovered), ("lost", lost), ("additional-fp", added), ("rolled-pit", rolled)):
+    for label, candidates in ((recovered_label, recovered), ("lost", lost), ("additional-fp", added), ("rolled-pit", rolled)):
         if not candidates:
             continue
         indices = np.arange(len(candidates)) if label == "rolled-pit" else rng.choice(len(candidates), min(4, len(candidates)), replace=False)

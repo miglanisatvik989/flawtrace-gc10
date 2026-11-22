@@ -165,3 +165,17 @@ matched validation split. It improved inclusion AP50 versus A1 but
 increased localization errors and trailed A0 at all four FP budgets.
 A1 remains the provisional development architecture and A0 the matched
 performance control. [Reviewed results and archives](results/a2_context_head.md)
+
+## S1-Fusion — Same-resolution complementary detector analysis
+
+Completed on CPU in `s1-teacher-fusion-01`. WBF at 640 reproduced
+both archived controls and improved recall over A1 by 7.54 pp at
+0.50 FP/image (95% paired interval [+4.37, +10.80]). The 2.32 pp
+gain over A0 had an interval spanning zero. Independent scientific
+review accepted the evidence for investigating distillation. [S1-Fusion results](results/s1_teacher_fusion.md)
+
+## S1-KD — Teacher-supervised P2 detector
+
+Reserved. The proposed A0 teacher supervises A1’s shared foreground
+P3–P5 features during training. The student retains the A1 inference
+graph. [Protocol for review](experiments/s1_teacher_fusion.md#reserved-protocol-for-s1-kd)
