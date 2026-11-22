@@ -1,7 +1,7 @@
 # FlawTrace experiment registry
 
-B0 and B1 are permanent identifiers. P1 and A1 onward are reserved for
-proposed methods and ablations. Use validation alone for model selection.
+B0 and B1 are permanent baseline identifiers. A0 and A1 identify the
+matched architecture comparison. Use validation alone for model selection.
 
 ## B0 — Released checkpoint verification
 
@@ -133,3 +133,27 @@ Completed and scientifically reviewed. Negative result. T yielded
 15.92% mAP50–95 versus 34.12% for B1 full-image 640. Recall was lower
 at every evaluated FP/image budget. E4 and E5 are deferred.
 [Reviewed results](results/e3_tiled_inference.md) · [Protocol](research_plan.md#e3-protocol)
+
+## A0–A1 — Matched P2 architecture comparison
+
+**Completed — scientifically reviewed mixed result.**
+
+Training completed at 640 pixels, physical batch 32, accumulation 2
+and seed 42. A0 is the original AGE-YOLO control
+(`a0-age-yolo-640-b32-02`, best epoch 146 of 196). A1 adds the
+stride-4 P2 route (`a1-age-yolo-p2-640-b32-01`, best epoch 160 of 210).
+The pinned architecture identities, checkpoint hashes and retrievable
+source verification are recorded in the [A0/A1 protocol](experiments/a1_p2_detection.md).
+
+Standalone validation (`a1-architecture-eval-01`, PBS `47980.mgmt01`)
+gave A0 70.01% mAP50 and 35.09% mAP50–95, and A1 71.00% and 35.21%.
+Both paired AP intervals span zero. A1 reduced fixed recall by 4.64
+points and trailed A0 at all four false-positive budgets. P2 supplied
+11 of A1’s 13 correct detections at short sides ≤16 px. Rolled-pit
+accuracy improved on four objects across two images, a descriptive
+finding. [Reviewed results and archive checksums](results/a1_p2_detection.md)
+
+B1 remains the historical baseline, A0 the matched control, and A1 the
+development architecture. Future candidates will compare with both A0
+and A1. A2, a planned context-aware SIFHead modification starting from
+A1, awaits scientific review before design and implementation.

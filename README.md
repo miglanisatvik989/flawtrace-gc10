@@ -8,11 +8,17 @@ B1 is scientifically accepted as FlawTrace’s hardware-adapted, single-seed
 AGE-YOLO baseline for milestone `v0.1-baseline`. The
 [experiment registry](docs/experiments.md) records results and artifact identities.
 
+B1 is the historical baseline for architecture research. A0 is the
+matched original AGE-YOLO control. A1 adds a stride-4 P2 pathway and
+is the current development architecture. Future architecture experiments
+will compare with both A0 and A1. [Reviewed A1 results](docs/results/a1_p2_detection.md)
+
 ## Repository structure
 
 | Path | Purpose |
 |---|---|
 | `configs/hpc.yaml`, `configs/baseline/` | Editable execution settings, reference settings and B1 run snapshot |
+| `configs/models/`, `configs/training/`, `configs/evaluation/` | Model definitions and registered training and evaluation settings |
 | `configs/gc10*.yaml`, `data/manifests/` | Native dataset descriptors and versioned split identities |
 | `scripts/`, `submit.sh`, `submit_eval.sh` | Data preparation, environment setup, training, evaluation and PBS execution |
 | `upstream/AGE-YOLO/` | Pinned author implementation and official weights |
@@ -104,6 +110,8 @@ digest. Test evaluation requires separate approval after model selection.
 | B0 released weights, approved historical evaluation | Test | 72.76% | 40.93% |
 | B1 epoch 84, training CSV | Validation | 69.59% | 34.22% |
 | B1 best.pt, accepted standalone evaluation | Validation | 69.5288% | 34.1224% |
+| A0 matched control, standalone evaluation | Validation | 70.01% | 35.09% |
+| A1 P2 extension, standalone evaluation | Validation | 71.00% | 35.21% |
 
 B1 selected epoch 84 and stopped after epoch 134. It used batch 64 instead
 of the official 16 and a single seed (42). The exact launch-time source
@@ -121,8 +129,15 @@ reviewed. Both fusion rules reduced AP and trailed the 640 control at every
 evaluated false-positive budget. E2 matched-resolution training restored E1’s 960 degradation but yielded
 only a +0.10-point mAP50–95 gain versus B1 at 640. E3 is scientifically reviewed and was worse than B1 at 640 on AP and
 every evaluated FP/image budget. E4 fusion and E5 selective refinement
-are deferred. The next research direction awaits maintainer approval.
+are deferred.
 [Reviewed E1 report](docs/results/e1_resolution.md) · [Reviewed E1A report](docs/results/e1a_fusion.md) · [Reviewed E2 report](docs/results/e2_training_resolution.md) · [Reviewed E3 report](docs/results/e3_tiled_inference.md)
+
+A1 is complete and scientifically reviewed. P2 produced 11 of A1’s 13
+correct detections in the ≤16 px group, and rolled-pit AP improved on
+four validation objects. The overall AP difference was inconclusive.
+A1 had lower fixed recall and lower recall at all four evaluated
+false-positive budgets. A2 is planned as a context-aware SIFHead change
+and awaits scientific review. [A1 results](docs/results/a1_p2_detection.md) · [A0/A1 protocol](docs/experiments/a1_p2_detection.md)
 
 ## HPC execution and recovery
 

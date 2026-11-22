@@ -36,6 +36,8 @@
 /flawtrace-e1.o[0-9]*
 /flawtrace-e2.o[0-9]*
 /flawtrace-e3.o[0-9]*
+/flawtrace-a1-eval.o[0-9]*
+/flawtrace-arch.o[0-9]*
 /flawtrace.o[0-9]*
 /flawtrace-check.o[0-9]*
 *.log

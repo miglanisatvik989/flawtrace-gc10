@@ -81,8 +81,9 @@ def frozen_inputs():
     return prior, truth
 
 
-def export_validation(run, conf, size, truth, checkpoint=CHECKPOINT):
-    destination = run / str(size)
+def export_validation(run, conf, size, truth, checkpoint=CHECKPOINT, *, name=None, inspect_predictions=None):
+    label = name or str(size)
+    destination = run / label
     destination.mkdir()
     model, torch, ultralytics, device = load_model(checkpoint, conf["DEVICE"])
     from ultralytics.models.yolo.detect import DetectionValidator
@@ -90,6 +91,12 @@ def export_validation(run, conf, size, truth, checkpoint=CHECKPOINT):
     predictions, ap_records, shapes = {}, {}, set()
 
     class ExportValidator(DetectionValidator):
+        def postprocess(self, preds):
+            if inspect_predictions is not None:
+                self.decoded = preds[0].clone()
+                self.grids = [tuple(level.shape[-2:]) for level in preds[1]]
+            return super().postprocess(preds)
+
         def update_metrics(self, preds, batch):
             shapes.add(tuple(batch["img"].shape))
             for i, pred in enumerate(preds):
@@ -106,9 +113,11 @@ def export_validation(run, conf, size, truth, checkpoint=CHECKPOINT):
                       if len(native) and len(target_classes)
                       else torch.zeros((len(native), self.niou), dtype=torch.bool, device=self.device))
                 rows = native.cpu().numpy()
+                extra = (inspect_predictions(self.decoded[i], self.grids, pred, prepared, truth[image])
+                         if inspect_predictions is not None else [{} for _ in rows])
                 predictions[image] = [
-                    dict(zip(("x1", "y1", "x2", "y2", "score"), map(float, row[:5])), class_id=int(row[5]))
-                    for row in rows
+                    dict(zip(("x1", "y1", "x2", "y2", "score"), map(float, row[:5])), class_id=int(row[5]), **info)
+                    for row, info in zip(rows, extra, strict=True)
                 ]
                 ap_records[image] = (tp.cpu().numpy(), rows[:, 4], rows[:, 5], target_classes.cpu().numpy())
             super().update_metrics(preds, batch)
@@ -118,8 +127,8 @@ def export_validation(run, conf, size, truth, checkpoint=CHECKPOINT):
              "val", destination, validator=ExportValidator, image_size=size)
     if predictions.keys() != truth.keys():
         raise ValueError("Native prediction images differ from the validation manifest.")
-    write_json(run / "predictions" / f"{size}.json", predictions)
-    np.savez_compressed(run / "predictions" / f"{size}-ap.npz", images=np.array(list(ap_records)),
+    write_json(run / "predictions" / f"{label}.json", predictions)
+    np.savez_compressed(run / "predictions" / f"{label}-ap.npz", images=np.array(list(ap_records)),
                         prediction_counts=[len(record[1]) for record in ap_records.values()],
                         target_counts=[len(record[3]) for record in ap_records.values()],
                         **dict(zip(("tp", "conf", "pred_cls", "target_cls"),
@@ -273,7 +282,7 @@ def bootstrap(run, conf, truth, objects, records, metrics):
     return rows
 
 
-def measure_timing(run, conf, checkpoint=CHECKPOINT):
+def measure_timing(run, conf, checkpoint=CHECKPOINT, *, architecture_passes=None):
     model, torch, _, device = load_model(checkpoint, conf["DEVICE"])
     from ultralytics.models.yolo.detect import DetectionValidator
     from ultralytics.nn.autobackend import AutoBackend
@@ -305,7 +314,14 @@ def measure_timing(run, conf, checkpoint=CHECKPOINT):
         torch.cuda.empty_cache()
         sample_names = random.Random(conf["SEED"]).sample(
             sorted(Path(image_path).glob("*")), conf["LATENCY_IMAGES"] + conf["WARMUP_BATCHES"])
-        for pass_index, size in enumerate((640, 960, 960, 640), 1):
+        passes = architecture_passes or [(None, checkpoint, size) for size in (640, 960, 960, 640)]
+        for pass_index, (label, weights, size) in enumerate(passes, 1):
+            if architecture_passes and weights != checkpoint:
+                del backend, model
+                torch.cuda.empty_cache()
+                model, _, _, _ = load_model(weights, conf["DEVICE"])
+                backend = AutoBackend(weights=model.model, device=device, fp16=False).eval()
+                checkpoint = weights
             for batch_size in (1, 16):
                 print(f"Timing pass {pass_index}, {size}px, batch {batch_size}", flush=True)
                 validator = DetectionValidator(
@@ -352,6 +368,7 @@ def measure_timing(run, conf, checkpoint=CHECKPOINT):
                 samples_count = len(measured) if batch_size == 1 else len(loader.dataset)
                 phases = np.asarray(accumulated)
                 results.append({
+                    **({"condition": label} if label is not None else {}),
                     "resolution": size, "pass": pass_index, "batch": batch_size, "images": samples_count,
                     "preprocess_ms_per_image": 1000 * phases[:, 0].sum() / samples_count,
                     "inference_ms_per_image": 1000 * phases[:, 1].sum() / samples_count,

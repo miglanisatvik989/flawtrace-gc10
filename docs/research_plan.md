@@ -12,8 +12,9 @@ accuracy, while recovering some objects missed at 640.
 
 The objectives are higher validation recall and AP, especially for narrow
 defects, with bounded latency, peak GPU memory, and compute per image.
-Future comparisons should reuse the same checkpoint, validation images,
-and evaluator, report time and memory on the same hardware, and include
+Inference-only comparisons should reuse the same checkpoint.
+Architecture comparisons should train matched controls. Use the same
+validation images, evaluator and hardware in each comparison. Include
 all preprocessing, inference and postprocessing in end-to-end latency.
 
 | ID | Experiment | Role |
@@ -27,6 +28,9 @@ all preprocessing, inference and postprocessing in end-to-end latency.
 | E3 | Fixed two-crop tiled inference | Completed and scientifically reviewed. Negative result. |
 | E4 | Full-image and tiled prediction fusion | Deferred after E1A and E3 |
 | E5 | Selective refinement | Deferred with E4 |
+| A0 | Original AGE-YOLO matched architecture control | Completed training and standalone validation. |
+| A1 | Stride-4 P2 AGE-YOLO extension | Completed and scientifically reviewed. Mixed result. Current development architecture. |
+| A2 | Context-aware SIFHead starting from A1 | Planned. Design and implementation await scientific review. |
 | V1 | Experimental verification | Conditional on identifying a method worth verifying |
 | V2 | Final held-out test evaluation | Conditional on V1, frozen choices, and explicit approval |
 
@@ -52,8 +56,26 @@ E3. E5 was planned as selective refinement, conditional on E4. E1A's
 fusion rules reduced AP and failed to improve recall under shared
 false-positive budgets. E3 improved neither AP nor recall under those
 budgets and increased inference cost. E4 and E5 are now deferred.
-The next research direction awaits scientific review and maintainer
-approval. [Reviewed E3 results](results/e3_tiled_inference.md)
+[Reviewed E3 results](results/e3_tiled_inference.md)
+
+## Architecture direction after E3
+
+A1 tests whether a stride-4 P2 branch conditioned on P3 improves recall
+and localization for small or narrow defects while retaining the
+existing P3–P5 routes and full-image 640 context. A0 reruns the original
+architecture under matching training settings. B1 remains the historical
+reference. Matched standalone validation found inconclusive overall AP
+gains. A1 had lower fixed recall, lower observed recall for short sides
+≤16 px and lower recall at every evaluated false-positive budget. P2
+contributed correct detections in the smallest group, and A1 improved
+rolled-pit performance on four objects across two images.
+[Matched A0/A1 protocol](experiments/a1_p2_detection.md) · [Reviewed results](results/a1_p2_detection.md)
+
+Retain A1 as the development architecture for its complementary
+detections and descriptive rolled-pit result. Future candidates must
+compare with both A0 and A1. The planned A2 context-aware SIFHead
+modification starts from A1. Its design and implementation remain
+pending scientific review.
 
 ## D1 protocol
 
